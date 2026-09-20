@@ -5,7 +5,7 @@ const Dashboard = () => {
         Resumen General
       </h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-slate-100">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
           <p className="text-sm text-slate-500 uppercase font-semibold">
             Ventas Totales
           </p>
