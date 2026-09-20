@@ -1,32 +1,35 @@
-# React + TypeScript + Vite
+# Multi-Catálogo Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Este proyecto está modularizado en dos partes principales: el backend y el frontend, ubicados en sus respectivas carpetas.
 
-Currently, two official plugins are available:
+## Estructura del Proyecto
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `backend/`: Contiene la API y la lógica del servidor, desarrollada en Go.
+- `frontend/`: Contiene la interfaz de usuario, desarrollada con React, TypeScript y Vite.
 
-## React Compiler
+## Cómo iniciar el proyecto
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Para ejecutar la aplicación completa, necesitarás levantar tanto el servidor del backend como el servidor de desarrollo del frontend en terminales separadas.
 
-## Expanding the Oxlint configuration
+### 1. Iniciar el Backend (Go)
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+Abre una terminal, navega a la carpeta `backend` y ejecuta la aplicación de Go:
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd backend
+go run main.go
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Esto iniciará el servidor del backend, el cual quedará a la escucha de peticiones HTTP.
+
+### 2. Iniciar el Frontend (React + Vite)
+
+Abre una nueva terminal, navega a la carpeta `frontend`, instala las dependencias y arranca el entorno de desarrollo:
+
+```bash
+cd frontend
+npm install      # O puedes usar: pnpm install
+npm run dev      # O puedes usar: pnpm dev
+```
+
+El servidor de Vite se iniciará y te mostrará una URL local en la terminal (por defecto, suele ser `http://localhost:5173`). Abre esa URL en tu navegador web para interactuar con la aplicación.
