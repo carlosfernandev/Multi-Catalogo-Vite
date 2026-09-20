@@ -5,7 +5,7 @@ import (
 	// Importamos Fiber para manejar la respuesta HTTP.
 	"github.com/gofiber/fiber/v2"
 	// Importamos nuestro paquete de modelos para usar la estructura Producto.
-	"multicatalogo-backend/models"
+	"backend/models"
 )
 
 // GetProductos es la función controladora encargada de devolver el catálogo de artículos.

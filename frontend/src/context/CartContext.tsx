@@ -1,17 +1,15 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import type { IProducto } from '../components/Catalogo/interfaces/iproducto';
+
+
 // 1. Definimos las interfaces (tipos de datos)
-export interface Producto {
-  id: number;
-  nombre: string;
-  precio: number;
-  img: string;
-}
-export interface CartItem extends Producto {
+
+export interface CartItem extends IProducto {
   cantidad: number;
 }
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (producto: Producto) => void;
+  addToCart: (producto: IProducto) => void;
   removeFromCart: (id: number) => void;
   totalItems: number;
   totalPrice: number;
@@ -34,7 +32,7 @@ interface CartProviderProps {
 export const CartProvider = ({ children }: CartProviderProps) => {
   // Le decimos a useState que este arreglo contendrá objetos de tipo CartItem
   const [cart, setCart] = useState<CartItem[]>([]);
-  const addToCart = (producto: Producto) => {
+  const addToCart = (producto: IProducto) => {
     setCart((prevCart) => {
       const itemExists = prevCart.find((item) => item.id === producto.id);
       if (itemExists) {

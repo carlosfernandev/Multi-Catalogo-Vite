@@ -4,7 +4,7 @@ import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 
 const Layout = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 768);
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
@@ -12,7 +12,14 @@ const Layout = () => {
 
   return (
     <div className="flex h-screen bg-slate-50">
-      <Sidebar collapsed={isCollapsed} />
+      {/* Overlay para móviles */}
+      {!isCollapsed && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsCollapsed(true)}
+        />
+      )}
+      <Sidebar collapsed={isCollapsed} onClose={() => setIsCollapsed(true)} />
       {/* Área de Contenido Principal */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Navbar toggleCollapse={toggleCollapse} />

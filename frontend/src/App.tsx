@@ -4,7 +4,7 @@ import {
 } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
-import Catalogo from './components/Catalogo';
+import Catalogo from './components/Catalogo/Catalogo';
 import MiRed from './components/MiRed';
 import Carrito from './components/Carrito';
 import Login from './components/Login';

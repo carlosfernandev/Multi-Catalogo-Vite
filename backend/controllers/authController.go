@@ -5,7 +5,7 @@ import (
 	// Importamos el framework Fiber para tener acceso al contexto (c *fiber.Ctx) de la petición HTTP.
 	"github.com/gofiber/fiber/v2"
 	// Importamos nuestro paquete de modelos para poder usar la estructura LoginRequest.
-	"multicatalogo-backend/models"
+	"backend/models"
 )
 
 // Login es la función controladora que se ejecutará cuando el cliente envíe sus credenciales.

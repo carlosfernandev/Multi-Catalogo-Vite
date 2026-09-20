@@ -1,24 +1,26 @@
-import { useCart } from '../context/CartContext';
+import { useEffect, useState } from 'react';
+import { useCart } from '../../context/CartContext';
+import type { IProducto } from './interfaces/iproducto';
+
 const Catalogo = () => {
   const { addToCart } = useCart(); // <-- Usamos la función del contexto
-  const productos = [
-    {
-      id: 1, nombre: "Serum Revitalizante", precio: 45.00, img:
-        "https://picsum.photos/seed/serum/150"
-    },
-    {
-      id: 2, nombre: "Crema Hidratante Pro", precio: 32.50, img:
-        "https://picsum.photos/seed/crema/150"
-    },
-    {
-      id: 3, nombre: "Tónico Purificante", precio: 28.00, img:
-        "https://picsum.photos/seed/tonico/150"
-    },
-    {
-      id: 4, nombre: "Mascarilla Nocturna", precio: 50.00, img:
-        "https://picsum.photos/seed/mascarilla/150"
-    },
-  ];
+  const [productos, setProductos] = useState<IProducto[]>([]);
+
+  useEffect(() => {
+    const obtenerProductos = async () => {
+      try {
+        const respuesta = await fetch('/api/productos');
+        const data = await respuesta.json();
+
+        setProductos(data);
+      } catch (error) {
+        console.error("falló la extracción de productos: ", error);
+      }
+    };
+    obtenerProductos();
+
+  }, []);
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800 mb-6">Catálogo de
