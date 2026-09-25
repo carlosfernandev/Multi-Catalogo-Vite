@@ -29,10 +29,10 @@ El estado global guarda el usuario completo (`email` + `rol`). El login normaliz
 
 ## Criterios de aceptación
 
-- [ ] `useAuth` expone `user: Usuario | null` y `isAuthenticated`.
-- [ ] `authService.login` tipa `Rol` y lanza error si `!response.ok`.
-- [ ] Login como admin redirige a `/`; como cliente a `/tienda`.
-- [ ] `npm run build` sin errores de tipos.
+- [x] `useAuth` expone `user: Usuario | null` y `isAuthenticated`.
+- [x] `authService.login` tipa `Rol` y lanza error si `!response.ok`.
+- [x] Login como admin redirige a `/`; como cliente a `/tienda`.
+- [x] `npm run build` sin errores de tipos.
 
 ## Verificación
 

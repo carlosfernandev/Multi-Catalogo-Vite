@@ -28,10 +28,10 @@ El detalle con galería y los filtros necesitan más campos que los 4 productos 
 
 ## Criterios de aceptación
 
-- [ ] `IProducto` contiene los 7 campos (`id`, `nombre`, `descripcion`, `precio`, `categoria`, `img`, `galeria`) con tipos correctos.
-- [ ] `productosMock` tiene 8 productos y cada uno tiene `galeria` de 3 imágenes.
-- [ ] `categorias` coincide con las categorías usadas en los productos.
-- [ ] `npm run build` y `npm run lint` sin errores de tipos.
+- [x] `IProducto` contiene los 7 campos (`id`, `nombre`, `descripcion`, `precio`, `categoria`, `img`, `galeria`) con tipos correctos.
+- [x] `productosMock` tiene 8 productos y cada uno tiene `galeria` de 3 imágenes.
+- [x] `categorias` coincide con las categorías usadas en los productos.
+- [x] `npm run build` y `npm run lint` sin errores de tipos.
 
 ## Verificación
 

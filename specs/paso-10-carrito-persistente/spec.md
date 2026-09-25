@@ -29,10 +29,10 @@ El carrito se inicializa leyendo `localStorage` y se guarda en cada cambio con `
 
 ## Criterios de aceptación
 
-- [ ] Recargar la página conserva el carrito.
-- [ ] Cambiar de usuario muestra carrito vacío o el suyo propio (no mezclado).
-- [ ] `−` a 0 elimina el ítem; `+` incrementa cantidad.
-- [ ] `clearCart` vacía el carrito (usado por checkout).
+- [x] Recargar la página conserva el carrito.
+- [x] Cambiar de usuario muestra carrito vacío o el suyo propio (no mezclado).
+- [x] `−` a 0 elimina el ítem; `+` incrementa cantidad.
+- [x] `clearCart` vacía el carrito (usado por checkout).
 
 ## Verificación
 

@@ -28,10 +28,10 @@ Ruta dinámica con `useParams`; galería con imagen activa y miniaturas; lightbo
 
 ## Criterios de aceptación
 
-- [ ] `/producto/1` muestra datos correctos y 4 imágenes navegables.
-- [ ] Lightbox abre al click, navega con `‹ ›` y cierra con `×` o `Escape`.
-- [ ] `/producto/999` muestra "Producto no encontrado" con link a `/catalogo`.
-- [ ] Botón "Añadir al Carrito" da feedback visual temporal.
+- [x] `/producto/1` muestra datos correctos y 4 imágenes navegables.
+- [x] Lightbox abre al click, navega con `‹ ›` y cierra con `×` o `Escape`.
+- [x] `/producto/999` muestra "Producto no encontrado" con link a `/catalogo`.
+- [x] Botón "Añadir al Carrito" da feedback visual temporal.
 
 ## Verificación
 

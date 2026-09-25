@@ -27,10 +27,10 @@ El Sidebar filtra las opciones según el rol y resalta la activa con `useLocatio
 
 ## Criterios de aceptación
 
-- [ ] Admin ve Dashboard, Tienda, Catálogo, Mi Red; cliente solo Tienda y Catálogo.
-- [ ] Opción activa resaltada con `bg-indigo-600`.
-- [ ] Navbar muestra badge de rol y título por perfil.
-- [ ] Cerrar sesión navega a `/login`.
+- [x] Admin ve Dashboard, Tienda, Catálogo, Mi Red; cliente solo Tienda y Catálogo.
+- [x] Opción activa resaltada con `bg-indigo-600`.
+- [x] Navbar muestra badge de rol y título por perfil.
+- [x] Cerrar sesión navega a `/login`.
 
 ## Verificación
 

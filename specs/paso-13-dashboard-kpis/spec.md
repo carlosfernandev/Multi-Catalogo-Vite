@@ -27,10 +27,10 @@ Los valores ya no son estáticos; se calculan con las mismas funciones puras de 
 
 ## Criterios de aceptación
 
-- [ ] KPIs muestran $4 090 ventas, 7 referidos, $319.50 comisiones, nivel Plata.
-- [ ] Top 3 ordenado por ventas descendente con comisión.
-- [ ] Barra de progreso refleja `referidosDirectos / 6`.
-- [ ] Solo admin ve `/` (guarda `AdminRoute`).
+- [x] KPIs muestran $4 090 ventas, 7 referidos, $319.50 comisiones, nivel Plata.
+- [x] Top 3 ordenado por ventas descendente con comisión.
+- [x] Barra de progreso refleja `referidosDirectos / 6`.
+- [x] Solo admin ve `/` (guarda `AdminRoute`).
 
 ## Verificación
 

@@ -27,10 +27,10 @@ Dos guardas anidadas: `ProtectedRoute` exige autenticación; `AdminRoute` exige 
 
 ## Criterios de aceptación
 
-- [ ] Usuario no autenticado es redirigido a `/login` en cualquier ruta protegida.
-- [ ] Cliente que navega a `/` o `/mi-red` es redirigido a `/tienda`.
-- [ ] Admin accede a todas las rutas.
-- [ ] `CartBoundary` cambia `key` al cambiar de usuario.
+- [x] Usuario no autenticado es redirigido a `/login` en cualquier ruta protegida.
+- [x] Cliente que navega a `/` o `/mi-red` es redirigido a `/tienda`.
+- [x] Admin accede a todas las rutas.
+- [x] `CartBoundary` cambia `key` al cambiar de usuario.
 
 ## Verificación
 

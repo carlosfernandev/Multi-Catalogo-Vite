@@ -27,10 +27,10 @@ Interfaces full-screen: el hero usa `min-h-screen` con degradados y el resto se 
 
 ## Criterios de aceptación
 
-- [ ] Hero ocupa el viewport completo (`min-h-screen`) con CTA a `/catalogo`.
-- [ ] Sección categorías muestra 5 cards enlazadas con `?categoria=`.
-- [ ] Destacados muestran 4 productos con imagen, categoría y precio.
-- [ ] Cliente no ve "Conocer el Plan Multinivel"; admin sí.
+- [x] Hero ocupa el viewport completo (`min-h-screen`) con CTA a `/catalogo`.
+- [x] Sección categorías muestra 5 cards enlazadas con `?categoria=`.
+- [x] Destacados muestran 4 productos con imagen, categoría y precio.
+- [x] Cliente no ve "Conocer el Plan Multinivel"; admin sí.
 
 ## Verificación
 

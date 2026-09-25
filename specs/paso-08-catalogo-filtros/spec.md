@@ -28,10 +28,10 @@ Convertir el catálogo en una vista interactiva con búsqueda por texto y filtro
 
 ## Criterios de aceptación
 
-- [ ] Búsqueda filtra por nombre o descripción (case-insensitive).
-- [ ] Selector de categoría sincroniza `?categoria=` en la URL.
-- [ ] `useMemo` lista dependencias `[productos, busqueda, categoria]`.
-- [ ] Estado vacío muestra mensaje y botón de limpiar.
+- [x] Búsqueda filtra por nombre o descripción (case-insensitive).
+- [x] Selector de categoría sincroniza `?categoria=` en la URL.
+- [x] `useMemo` lista dependencias `[productos, busqueda, categoria]`.
+- [x] Estado vacío muestra mensaje y botón de limpiar.
 
 ## Verificación
 

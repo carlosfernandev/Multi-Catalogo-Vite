@@ -28,10 +28,10 @@ El checkout valida datos de envío y resume el pedido en vivo. Al confirmar simu
 
 ## Criterios de aceptación
 
-- [ ] Checkout muestra carrito vacío si no hay ítems.
-- [ ] Formulario valida campos `required` y método de pago.
-- [ ] Confirmar genera `MC-xxxxxx`, vacía el carrito y muestra detalle con total.
-- [ ] Acceso directo a `/confirmacion` muestra mensaje genérico con link a `/tienda`.
+- [x] Checkout muestra carrito vacío si no hay ítems.
+- [x] Formulario valida campos `required` y método de pago.
+- [x] Confirmar genera `MC-xxxxxx`, vacía el carrito y muestra detalle con total.
+- [x] Acceso directo a `/confirmacion` muestra mensaje genérico con link a `/tienda`.
 
 ## Verificación
 

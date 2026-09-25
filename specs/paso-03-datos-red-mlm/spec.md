@@ -27,10 +27,10 @@ La red de referidos es un árbol jerárquico. Definimos la estructura de datos y
 
 ## Criterios de aceptación
 
-- [ ] `redInicial` tiene estructura de 3 niveles y 7 referidos (sin contar raíz).
-- [ ] `sumarComisiones(redInicial)` retorna 319.50.
-- [ ] `contarRed` y `sumarVentasRed` coinciden con los valores esperados (7 / $4 090).
-- [ ] `nivelAlcanzado` mapea 0–1→Bronce, 2–3→Plata, 4–5→Oro, 6+→Diamante.
+- [x] `redInicial` tiene estructura de 3 niveles y 7 referidos (sin contar raíz).
+- [x] `sumarComisiones(redInicial)` retorna 319.50.
+- [x] `contarRed` y `sumarVentasRed` coinciden con los valores esperados (7 / $4 090).
+- [x] `nivelAlcanzado` mapea 0–1→Bronce, 2–3→Plata, 4–5→Oro, 6+→Diamante.
 
 ## Verificación
 

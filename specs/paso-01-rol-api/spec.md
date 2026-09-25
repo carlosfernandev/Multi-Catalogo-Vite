@@ -26,10 +26,10 @@ La autenticación distingue dos perfiles: `admin` (gestiona el negocio) y `clien
 
 ## Criterios de aceptación
 
-- [ ] `POST /api/login` con `admin@upse.edu.ec / 123456` retorna `rol: "admin"`.
-- [ ] `POST /api/login` con `cliente@upse.edu.ec / 123456` retorna `rol: "cliente"`.
-- [ ] Credenciales inválidas retornan 401 con `error`.
-- [ ] `go build ./...` compila sin errores.
+- [x] `POST /api/login` con `admin@upse.edu.ec / 123456` retorna `rol: "admin"`.
+- [x] `POST /api/login` con `cliente@upse.edu.ec / 123456` retorna `rol: "cliente"`.
+- [x] Credenciales inválidas retornan 401 con `error`.
+- [x] `go build ./...` compila sin errores.
 
 ## Verificación
 

@@ -27,10 +27,10 @@ Un componente recursivo renderiza el árbol: cada `NodoReferido` se dibuja a sí
 
 ## Criterios de aceptación
 
-- [ ] Resumen muestra 7 referidos, $4 090 ventas, $319.50 comisiones, nivel Plata.
-- [ ] Árbol renderiza 3 niveles con indentación y badge de comisión por nodo.
-- [ ] Cada nodo muestra `+ $comision` calculada por `comisionDeReferido`.
-- [ ] Solo admin accede a `/mi-red` (guardas del Paso 6).
+- [x] Resumen muestra 7 referidos, $4 090 ventas, $319.50 comisiones, nivel Plata.
+- [x] Árbol renderiza 3 niveles con indentación y badge de comisión por nodo.
+- [x] Cada nodo muestra `+ $comision` calculada por `comisionDeReferido`.
+- [x] Solo admin accede a `/mi-red` (guardas del Paso 6).
 
 ## Verificación
 
