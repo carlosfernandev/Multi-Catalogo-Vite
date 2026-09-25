@@ -27,10 +27,10 @@ Separar la obtención de datos de los componentes. Las funciones devuelven `Prom
 
 ## Criterios de aceptación
 
-- [ ] Ambas funciones retornan `Promise` y simulan latencia.
-- [ ] `getProductos` resuelve con la lista completa (8 productos).
-- [ ] `getProductoById` resuelve con el producto o `undefined` si no existe.
-- [ ] Import paths usan `../data/productos` y `../interfaces/iproducto`.
+- [x] Ambas funciones retornan `Promise` y simulan latencia.
+- [x] `getProductos` resuelve con la lista completa (8 productos).
+- [x] `getProductoById` resuelve con el producto o `undefined` si no existe.
+- [x] Import paths usan `../data/productos` y `../interfaces/iproducto`.
 
 ## Verificación
 
