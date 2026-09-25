@@ -8,6 +8,8 @@ import Storefront from './components/Storefront';
 import DetalleProducto from './components/DetalleProducto';
 import MiRed from './components/MiRed';
 import Carrito from './components/Carrito';
+import Checkout from './components/Checkout';
+import Confirmacion from './components/Confirmacion';
 import Login from './components/Login/Login';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -75,8 +77,8 @@ function App() {
                 <Route path="catalogo" element={<Catalogo />} />
                 <Route path="producto/:id" element={<DetalleProducto />} />
                 <Route path="carrito" element={<Carrito />} />
-                {/* Se agregan en el Paso 11 (sus componentes aún no existen):
-                    /checkout -> Checkout y /confirmacion -> Confirmacion */}
+                <Route path="checkout" element={<Checkout />} />
+                <Route path="confirmacion" element={<Confirmacion />} />
               </Route>
             </Route>
 
