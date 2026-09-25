@@ -57,9 +57,8 @@ const Sidebar = ({ collapsed, onClose }: SidebarProps) => {
     <aside
       className={`
         fixed inset-y-0 left-0 z-50 transform bg-red-900 text-white flex flex-col transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap
-        -translate-x-full md:translate-x-0
-        w-64
-        ${collapsed ? "md:w-20" : "md:w-64"}
+        md:relative md:translate-x-0
+        ${collapsed ? "-translate-x-full md:w-20" : "translate-x-0 w-64 md:w-64"}
       `}
     >
       <div className={`p-4 md:p-6 text-xl font-bold border-b border-slate-700 flex items-center ${collapsed ? 'md:justify-center' : 'justify-start'} whitespace-nowrap`}>
