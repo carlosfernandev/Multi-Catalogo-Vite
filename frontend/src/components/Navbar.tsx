@@ -8,7 +8,7 @@ interface NavbarProps {
 
 const Navbar = ({ toggleCollapse }: NavbarProps) => {
   const { totalItems } = useCart();
-  const { logout, userEmail } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -40,7 +40,7 @@ transform translate-x-1 -translate-y-1">
           )}
         </Link>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-500">{userEmail}</span>
+          <span className="text-sm text-slate-500">{user?.email}</span>
           {/* Contenedor relativo con la clase 'group' para detectar el hover */}
           <div className="relative group cursor-pointer pb-2">
             {/* Círculo del usuario / Avatar */}
