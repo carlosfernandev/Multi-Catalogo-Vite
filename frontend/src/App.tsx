@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Catalogo from './components/Catalogo/Catalogo';
 import Storefront from './components/Storefront';
+import DetalleProducto from './components/DetalleProducto';
 import MiRed from './components/MiRed';
 import Carrito from './components/Carrito';
 import Login from './components/Login/Login';
@@ -72,10 +73,10 @@ function App() {
                 {/* Ambos roles: flujo de compra en línea */}
                 <Route path="tienda" element={<Storefront />} />
                 <Route path="catalogo" element={<Catalogo />} />
+                <Route path="producto/:id" element={<DetalleProducto />} />
                 <Route path="carrito" element={<Carrito />} />
-                {/* Se agregan en pasos posteriores (sus componentes aún no existen):
-                    /producto/:id (Paso 9 -> DetalleProducto),
-                    /checkout y /confirmacion (Paso 11 -> Checkout y Confirmacion) */}
+                {/* Se agregan en el Paso 11 (sus componentes aún no existen):
+                    /checkout -> Checkout y /confirmacion -> Confirmacion */}
               </Route>
             </Route>
 
