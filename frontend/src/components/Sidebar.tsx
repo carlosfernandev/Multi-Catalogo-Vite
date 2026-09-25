@@ -1,46 +1,114 @@
-interface Prop {
+// src/components/Sidebar.tsx
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+
+// NUEVO: Agregamos la función a la interfaz de props
+interface SidebarProps {
   collapsed: boolean;
   onClose: () => void;
 }
 
+// Definimos las opciones de navegación según el rol (Tema 5)
+interface NavItem {
+  to: string;
+  label: string;
+  title: string;
+  icon: string; // ruta del icono SVG (stroke)
+  soloAdmin?: boolean;
+}
 
-import { Link } from "react-router-dom";
-const Sidebar = ({ collapsed, onClose }: Prop) => {
+const NAV_ITEMS: NavItem[] = [
+  {
+    to: "/",
+    label: "Dashboard",
+    title: "Dashboard",
+    soloAdmin: true,
+    icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+  },
+  {
+    to: "/tienda",
+    label: "Tienda",
+    title: "Tienda",
+    icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z",
+  },
+  {
+    to: "/catalogo",
+    label: "Catálogo",
+    title: "Catálogo",
+    icon: "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
+  },
+  {
+    to: "/mi-red",
+    label: "Mi Red",
+    title: "Mi Red",
+    soloAdmin: true,
+    icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+  },
+];
+
+const Sidebar = ({ collapsed, onClose }: SidebarProps) => {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+
+  // Filtramos las opciones según el rol del usuario
+  const items = NAV_ITEMS.filter((item) => !item.soloAdmin || user?.rol === "admin");
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-50 md:relative md:translate-x-0 ${collapsed ? '-translate-x-full md:w-20' : 'translate-x-0 w-9/12 sm:w-8/12 md:w-64'} bg-slate-900 text-white flex flex-col transition-all duration-300 overflow-hidden whitespace-nowrap`}>
-      <div className={`h-16 flex items-center ${collapsed ? 'justify-center' : 'px-6 justify-between'} text-2xl font-bold border-b border-slate-700 transition-all`}>
-        {collapsed ? 'MC' : 'MultiCatálogo'}
-
-        <button className="md:hidden bg-slate-800" onClick={onClose}>
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" /></svg>
-        </button>
+    <aside
+      className={`
+        fixed inset-y-0 left-0 z-50 transform bg-red-900 text-white flex flex-col transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap
+        -translate-x-full md:translate-x-0
+        w-64
+        ${collapsed ? "md:w-20" : "md:w-64"}
+      `}
+    >
+      <div className={`p-4 md:p-6 text-xl font-bold border-b border-slate-700 flex items-center ${collapsed ? 'md:justify-center' : 'justify-start'} whitespace-nowrap`}>
+        <span className="md:hidden">MultiCatálogo</span>
+        <span className="hidden md:inline">{collapsed ? "MC" : "MultiCatálogo"}</span>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
-        <Link
-          to="/"
-          className="flex items-center gap-4 p-3 rounded hover:bg-slate-800 transition"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor" className="shrink-0"><path d="M120-120v-320h320v320H120Zm0-400v-320h320v320H120Zm400 400v-320h320v320H520Zm0-400v-320h320v320H520Z" /></svg>
-          <span className={`transition-all duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>Dashboard</span>
-        </Link>
-        <Link
-          to="/catalogo"
-          className="flex items-center gap-4 p-3 rounded hover:bg-slate-800 transition"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor" className="shrink-0"><path d="M280-600v-80h560v80H280Zm0 160v-80h560v80H280Zm0 160v-80h560v80H280ZM160-600q-17 0-28.5-11.5T120-640q0-17 11.5-28.5T160-680q17 0 28.5 11.5T200-640q0 17-11.5 28.5T160-600Zm0 160q-17 0-28.5-11.5T120-480q0-17 11.5-28.5T160-520q17 0 28.5 11.5T200-480q0 17-11.5 28.5T160-440Zm0 160q-17 0-28.5-11.5T120-320q0-17 11.5-28.5T160-360q17 0 28.5 11.5T200-320q0 17-11.5 28.5T160-280Z" /></svg>
-          <span className={`transition-all duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>Catálogo</span>
-        </Link>
-        <Link
-          to="/mi-red"
-          className="flex items-center gap-4 p-3 rounded hover:bg-slate-800 transition"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor" className="shrink-0"><path d="M0-240v-63q0-43 44-70t116-27q13 0 25 .5t23 2.5q-14 21-21 44t-7 48v65H0Zm240 0v-65q0-32 17.5-58.5T307-410q32-20 76.5-30t96.5-10q53 0 97.5 10t76.5 30q32 20 49 46.5t17 58.5v65H240Zm540 0H600v-65q0-25-6.5-48t-20.5-44q11-2 23-2.5t24-.5q72 0 116 27t44 70v63ZM160-440q-33 0-56.5-23.5T80-520q0-34 23.5-57t56.5-23q34 0 57 23t23 57q0 33-23 56.5T160-440Zm640 0q-34 0-57.5-23.5T720-520q0-34 23.5-57t57.5-23q33 0 56.5 23t23.5 57q0 33-23.5 56.5T800-440Zm-320-40q-50 0-85-35t-35-85q0-51 35-85.5t85-34.5q51 0 85.5 34.5T600-600q0 50-34.5 85T480-480Z" /></svg>
-          <span className={`transition-all duration-300 ${collapsed ? 'opacity-0' : 'opacity-100'}`}>Mi Red</span>
-        </Link>
+      <nav className="flex-1 p-3 space-y-2 overflow-y-auto">
+        {items.map((item) => {
+          // Resaltamos la opción activa según la ruta actual
+          const esActivo =
+            item.to === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.to);
+
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onClose}
+              className={`flex items-center gap-3 p-3 rounded transition ${
+                esActivo
+                  ? "bg-indigo-600 text-white"
+                  : "hover:bg-slate-800"
+              } ${collapsed ? 'md:justify-center' : ''}`}
+              title={item.title}
+            >
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+              </svg>
+              <span className={`whitespace-nowrap ${collapsed ? 'md:hidden' : ''}`}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
       </nav>
+
+      <div className="p-3 border-t border-slate-700 text-xs text-slate-300">
+        {collapsed ? (
+          <p className="text-center uppercase">{user?.rol}</p>
+        ) : (
+          <p>
+            Conectado como <span className="font-semibold uppercase">{user?.rol}</span>
+          </p>
+        )}
+      </div>
     </aside>
   );
 };
+
 export default Sidebar;
