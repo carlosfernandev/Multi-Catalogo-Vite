@@ -1013,7 +1013,7 @@ export default Storefront;
 // - Tarjetas enlazadas al detalle /producto/:id
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../../context/CartContext';
 import { getProductos } from './services/productosService';
 import { categorias } from './data/productos';
 import type { IProducto } from './interfaces/iproducto';
