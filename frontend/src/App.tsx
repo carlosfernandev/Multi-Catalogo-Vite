@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Catalogo from './components/Catalogo/Catalogo';
+import Storefront from './components/Storefront';
 import MiRed from './components/MiRed';
 import Carrito from './components/Carrito';
 import Login from './components/Login/Login';
@@ -69,10 +70,11 @@ function App() {
                 </Route>
 
                 {/* Ambos roles: flujo de compra en línea */}
+                <Route path="tienda" element={<Storefront />} />
                 <Route path="catalogo" element={<Catalogo />} />
                 <Route path="carrito" element={<Carrito />} />
                 {/* Se agregan en pasos posteriores (sus componentes aún no existen):
-                    /tienda (Paso 7 -> Storefront), /producto/:id (Paso 9 -> DetalleProducto),
+                    /producto/:id (Paso 9 -> DetalleProducto),
                     /checkout y /confirmacion (Paso 11 -> Checkout y Confirmacion) */}
               </Route>
             </Route>

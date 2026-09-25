@@ -538,7 +538,7 @@ El proceso POST de autenticación se aísla en un servicio por feature, con el m
 // para que el componente solo llame a esta función, igual que Catalogo/services.
 // En la Unidad 2 este cuerpo se reemplazará por JWT real sin tocar Login.tsx.
 
-import type { Rol } from "../../context/AuthContext";
+import type { Rol } from "../../../context/AuthContext";
 
 export interface LoginResponse {
   email: string;
