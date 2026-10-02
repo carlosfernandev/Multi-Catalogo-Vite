@@ -20,3 +20,13 @@ type Producto struct {
 	// Img es la URL o ruta que apunta a la fotografía o imagen del producto.
 	Img    string  `json:"img"`
 }
+
+// APIError estandariza las respuestas de error HTTP en toda la API.
+type APIError struct {
+	// Status es el código de estado HTTP.
+	Status int `json:"status"`
+	// Message es el mensaje de error descriptivo.
+	Message string `json:"message"`
+	// Details es información adicional opcional sobre el error.
+	Details interface{} `json:"details,omitempty"`
+}
