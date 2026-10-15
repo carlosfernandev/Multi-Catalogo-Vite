@@ -1,13 +1,48 @@
 // src/components/Dashboard.tsx
 // Resumen general con KPIs calculados desde el estado real (Tema 5):
 // - Funciones puras de data/red.ts en lugar de valores estáticos
-import { redInicial, contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido } from './MiRed/data/red';
+import { useState, useEffect } from 'react';
+import { contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido, type Referido } from './MiRed/data/red';
+import { getRed } from './MiRed/services/redService';
 
 const Dashboard = () => {
-  const referidosDirectos = redInicial.hijos?.length ?? 0;
-  const referidosActivos = contarRed(redInicial);
-  const ventasRed = sumarVentasRed(redInicial);
-  const comisionesMes = sumarComisiones(redInicial);
+  const [red, setRed] = useState<Referido | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getRed()
+      .then((data) => {
+        setRed(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Error al cargar la red");
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <p className="text-slate-500 font-medium">Cargando resumen...</p>
+      </div>
+    );
+  }
+
+  if (error || !red) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-lg">
+        <p className="font-semibold">Error al cargar el resumen</p>
+        <p className="text-sm mt-1">{error ?? "No se pudieron obtener los datos de la red."}</p>
+      </div>
+    );
+  }
+
+  const referidosDirectos = red.hijos?.length ?? 0;
+  const referidosActivos = contarRed(red);
+  const ventasRed = sumarVentasRed(red);
+  const comisionesMes = sumarComisiones(red);
   const nivel = nivelAlcanzado(referidosDirectos);
 
   const kpis = [
@@ -18,7 +53,7 @@ const Dashboard = () => {
   ];
 
   // Top 3 referidos por ventas (sin recursión: solo nivel 1)
-  const topReferidos = [...(redInicial.hijos ?? [])]
+  const topReferidos = [...(red.hijos ?? [])]
     .sort((a, b) => b.ventas - a.ventas)
     .slice(0, 3);
 

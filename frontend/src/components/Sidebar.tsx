@@ -1,6 +1,7 @@
-// src/components/Sidebar.tsx
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { checkHealth } from "../services/healthService";
 
 // NUEVO: Agregamos la función a la interfaz de props
 interface SidebarProps {
@@ -49,6 +50,17 @@ const NAV_ITEMS: NavItem[] = [
 const Sidebar = ({ collapsed, onClose }: SidebarProps) => {
   const { user } = useAuth();
   const { pathname } = useLocation();
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkHealth()
+      .then((res) => {
+        setBackendOnline(res.status === "ok");
+      })
+      .catch(() => {
+        setBackendOnline(false);
+      });
+  }, []);
 
   // Filtramos las opciones según el rol del usuario
   const items = NAV_ITEMS.filter((item) => !item.soloAdmin || user?.rol === "admin");
@@ -99,11 +111,49 @@ const Sidebar = ({ collapsed, onClose }: SidebarProps) => {
 
       <div className="p-3 border-t border-slate-700 text-xs text-slate-300">
         {collapsed ? (
-          <p className="text-center uppercase">{user?.rol}</p>
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="text-center uppercase">{user?.rol}</p>
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                backendOnline === true
+                  ? "bg-green-400"
+                  : backendOnline === false
+                  ? "bg-red-400"
+                  : "bg-amber-400"
+              }`}
+              title={
+                backendOnline === true
+                  ? "API Go: Conectada"
+                  : backendOnline === false
+                  ? "API Go: Desconectada"
+                  : "API Go: Verificando..."
+              }
+            />
+          </div>
         ) : (
-          <p>
-            Conectado como <span className="font-semibold uppercase">{user?.rol}</span>
-          </p>
+          <div>
+            <p>
+              Conectado como <span className="font-semibold uppercase">{user?.rol}</span>
+            </p>
+            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-300">
+              <span
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  backendOnline === true
+                    ? "bg-green-400"
+                    : backendOnline === false
+                    ? "bg-red-400"
+                    : "bg-amber-400"
+                }`}
+              />
+              <span>
+                {backendOnline === true
+                  ? "API Go: Conectada"
+                  : backendOnline === false
+                  ? "API Go: Desconectada"
+                  : "API Go: Verificando..."}
+              </span>
+            </div>
+          </div>
         )}
       </div>
     </aside>

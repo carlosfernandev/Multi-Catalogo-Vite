@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: multicatalogo_db
+    environment:
+      POSTGRES_USER: multicatalogo_user
+      POSTGRES_PASSWORD: multicatalogo_pass
+      POSTGRES_DB: multicatalogo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U multicatalogo_user -d multicatalogo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

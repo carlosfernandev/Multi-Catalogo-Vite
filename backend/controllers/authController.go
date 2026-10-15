@@ -6,6 +6,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	// Importamos nuestro paquete de modelos para poder usar la estructura LoginRequest.
 	"backend/models"
+	// Importamos el repository para acceder a la base de datos.
+	"backend/repository"
 )
 
 // Login es la función controladora que se ejecutará cuando el cliente envíe sus credenciales.
@@ -16,20 +18,45 @@ func Login(c *fiber.Ctx) error {
 	// Intentamos parsear (transformar) el cuerpo JSON entrante y guardarlo en la variable 'req'.
 	if err := c.BodyParser(&req); err != nil {
 		// Si ocurre un error al parsear (ej. JSON mal formado), retornamos un estado HTTP 400 (Bad Request).
-		return c.Status(400).JSON(fiber.Map{"error": "Cuerpo de petición inválido"})
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "Cuerpo de petición inválido",
+		})
 	}
 
-	// Evaluamos si el email y la contraseña coinciden con las credenciales predefinidas.
-	// Nota: al estar hardcodeado, distinguimos dos roles: admin y cliente.
-	switch {
-	case req.Email == "admin@upse.edu.ec" && req.Password == "123456":
-		// Si es el administrador, retornamos un estado HTTP 200 (por defecto) con token ficticio, correo y rol admin.
-		return c.JSON(fiber.Map{"token": "fake-jwt-token-123", "email": req.Email, "rol": "admin"})
-	case req.Email == "cliente@upse.edu.ec" && req.Password == "123456":
-		// Si es un cliente registrado, retornamos un estado HTTP 200 con token ficticio, correo y rol cliente.
-		return c.JSON(fiber.Map{"token": "fake-jwt-token-456", "email": req.Email, "rol": "cliente"})
-	default:
-		// Si las credenciales son incorrectas, retornamos un estado HTTP 401 (No autorizado) con un mensaje de error.
-		return c.Status(401).JSON(fiber.Map{"error": "Credenciales incorrectas"})
+	// Validamos que los campos Email y Password no estén vacíos.
+	if req.Email == "" || req.Password == "" {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "Email y Password son obligatorios",
+		})
 	}
+
+	// Buscar usuario en la base de datos usando el repository.
+	usuario, err := repository.BuscarUsuarioPorCredenciales(c.Context(), req.Email, req.Password)
+	if err != nil {
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al buscar usuario",
+			Details: err.Error(),
+		})
+	}
+
+	// Si no se encontró el usuario, retornar 401.
+	if usuario == nil {
+		return c.Status(401).JSON(models.APIError{
+			Status:  401,
+			Message: "Credenciales incorrectas",
+		})
+	}
+
+	// Generar token ficticio (en producción usar JWT real).
+	token := "fake-jwt-token-" + usuario.Rol
+
+	// Retornar respuesta exitosa con token, email y rol.
+	return c.JSON(fiber.Map{
+		"token": token,
+		"email": usuario.Email,
+		"rol":   usuario.Rol,
+	})
 }
