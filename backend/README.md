@@ -8,6 +8,7 @@ API Go/Fiber con persistencia en PostgreSQL para el proyecto MultiCatálogo.
 - **Base de datos:** PostgreSQL 16 (en Docker)
 - **Driver:** pgx/v5 (pool de conexiones)
 - **Configuración:** godotenv (variables de entorno)
+- **Caché:** Redis (`redis:alpine`) con go-redis/v9, patrón Cache-Aside
 
 ## Estructura
 
@@ -38,11 +39,20 @@ backend/
 
 ## Arranque
 
-### 1. Levantar PostgreSQL (Docker)
+### Opción rápida: todo en Docker
 
 ```bash
 cd backend
-docker-compose up -d
+docker-compose up -d --build
+```
+
+Levanta `postgres` (5432), `redis` (6379) y `backend` (3000). En un volumen nuevo, `database/init.sql` se ejecuta automáticamente.
+
+### 1. Levantar PostgreSQL y Redis (Docker)
+
+```bash
+cd backend
+docker-compose up -d postgres redis
 ```
 
 Esto levanta PostgreSQL 16 en el puerto 5432 con:
@@ -81,6 +91,25 @@ DB_PORT=5432
 DB_USER=multicatalogo_user
 DB_PASSWORD=multicatalogo_pass
 DB_NAME=multicatalogo
+REDIS_HOST=localhost
+REDIS_PORT=6379
+# Alternativa: REDIS_URL=redis://localhost:6379/0
+```
+
+## Caché (Redis, Cache-Aside)
+
+| Endpoint | Clave | TTL |
+|----------|-------|-----|
+| `GET /api/productos` | `productos:all` | 5 min |
+| `GET /api/red?email=...` | `red:tree:{email}` (sin `email` → `anonimo`) | 10 min |
+
+La cabecera `X-Cache` indica `MISS` (consultó PostgreSQL) o `HIT` (respondió desde Redis). Si Redis no está disponible, la API sigue funcionando contra PostgreSQL.
+
+```bash
+curl -i http://localhost:3000/api/productos | grep X-Cache   # MISS, luego HIT
+docker exec multicatalogo_redis redis-cli KEYS '*'
+docker exec multicatalogo_redis redis-cli TTL productos:all
+docker exec multicatalogo_redis redis-cli FLUSHALL           # invalidar caché
 ```
 
 ## Endpoints

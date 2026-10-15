@@ -6,15 +6,33 @@ import (
 	"github.com/gofiber/fiber/v2"
 	// Importamos strconv para convertir strings a números.
 	"strconv"
+	// Importamos time para definir el TTL de la caché.
+	"time"
+	// Importamos el paquete cache para aplicar el patrón Cache-Aside con Redis.
+	"backend/cache"
 	// Importamos nuestro paquete de modelos para usar la estructura Producto.
 	"backend/models"
 	// Importamos el repository para acceder a la base de datos.
 	"backend/repository"
 )
 
+// claveProductos es la clave de Redis donde se almacena el catálogo completo.
+const claveProductos = "productos:all"
+
+// ttlProductos es el tiempo de expiración del catálogo en caché.
+const ttlProductos = 5 * time.Minute
+
 // GetProductos es la función controladora encargada de devolver el catálogo de artículos.
 func GetProductos(c *fiber.Ctx) error {
-	// Obtener productos desde la base de datos usando el repository.
+	// 1. Intentar leer el catálogo desde Redis.
+	var productos []models.Producto
+	if cache.Obtener(c.Context(), claveProductos, &productos) {
+		// 2. Cache Hit: responder sin tocar PostgreSQL.
+		c.Set("X-Cache", "HIT")
+		return c.JSON(productos)
+	}
+
+	// 3. Cache Miss: obtener productos desde la base de datos usando el repository.
 	productos, err := repository.ObtenerProductos(c.Context())
 	if err != nil {
 		return c.Status(500).JSON(models.APIError{
@@ -23,6 +41,10 @@ func GetProductos(c *fiber.Ctx) error {
 			Details: err.Error(),
 		})
 	}
+
+	// Guardar el resultado en Redis con TTL de 5 minutos.
+	cache.Guardar(c.Context(), claveProductos, productos, ttlProductos)
+	c.Set("X-Cache", "MISS")
 
 	// Fiber convierte automáticamente el slice de estructuras a formato JSON y lo envía como respuesta al cliente.
 	return c.JSON(productos)

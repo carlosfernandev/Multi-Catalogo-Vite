@@ -23,6 +23,12 @@ func main() {
 	// Asegurar que la conexión se cierre al terminar la aplicación.
 	defer config.CloseDB()
 
+	// Inicializar Redis (caché). Si falla, la API sigue funcionando consultando solo PostgreSQL.
+	if err := config.InitRedis(); err != nil {
+		log.Printf("Advertencia: caché deshabilitada: %v", err)
+	}
+	defer config.CloseRedis()
+
 	// Instanciamos una nueva aplicación de Fiber y la guardamos en la variable 'app'.
 	app := fiber.New()
 

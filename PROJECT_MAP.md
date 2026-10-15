@@ -15,6 +15,12 @@
 - `authController.go` — `POST /api/login` (login con rol: admin/cliente).
 - `prodController.go` — `GET /api/productos` (lista), `GET /api/productos/:id` (detalle por ID).
 - `healthController.go` — `GET /api/health` (health check).
+- `redController.go` — `GET /api/red` (árbol multinivel, caché `red:tree:{email}` TTL 10 min).
+- `prodController.go` usa caché Redis `productos:all` (TTL 5 min) en `GET /api/productos`.
+
+**Caché** (`backend/cache/`, `backend/config/redis.go`):
+- `config/redis.go` — Cliente Redis (`REDIS_URL` o `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`).
+- `cache/cache.go` — `Obtener` / `Guardar` (Cache-Aside JSON + TTL; cabecera `X-Cache: HIT|MISS`).
 
 **Modelos** (`backend/models/`):
 - `models.go` — `LoginRequest`, `Producto`, `APIError` (estructuras de datos).
@@ -24,6 +30,7 @@
 
 **Configuración:**
 - `go.mod`, `go.sum` — Dependencias Go.
+- `docker-compose.yml` + `Dockerfile` — servicios `postgres`, `redis` y `backend` (depende de ambos).
 - `go build ./...` — Comando de verificación (no hay tests).
 
 ## Frontend (React 19 + Vite)

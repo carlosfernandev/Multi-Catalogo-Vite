@@ -4,7 +4,7 @@
 
 **Hito actual:** Práctica 03 — Unidad 1, Tema 5 (Implementación de interfaces interactivas a pantalla completa y flujos para catálogos de venta multinivel)
 
-**Última tarea completada:** Paso 4 — Servicio de productos (capa de servicios con `getProductos` y `getProductoById`)
+**Última tarea completada:** Fase 3 — Caché con Redis (Cache-Aside en `/api/productos` y `/api/red`)
 
 **Siguiente tarea pendiente:** Paso 5 — Autenticación con rol (extender `AuthContext` con `email + rol` y crear `authService.ts`)
 
@@ -26,6 +26,13 @@
 - [x] `GET /api/productos` devuelve lista de productos (4 hardcodeados)
 - [x] `GET /api/productos/:id` devuelve producto por ID con validación de numérico
 - [x] Estructura `APIError` estandarizada en `models/models.go`
+
+### Fase 3 — Caché con Redis (Cache-Aside)
+- [x] Servicio `redis` (`redis:alpine`, puerto 6379) en `docker-compose.yml`; `backend` depende de `postgres` y `redis`
+- [x] `config/redis.go` con `redis.NewClient` leyendo `REDIS_URL` / `REDIS_HOST` / `REDIS_PORT`
+- [x] `GET /api/productos` cachea `productos:all` con TTL de 5 minutos
+- [x] `GET /api/red` cachea `red:tree:{email}` (query `?email=`) con TTL de 10 minutos
+- [x] Cache Hit responde sin consultar PostgreSQL; si Redis cae, la API sigue respondiendo desde PostgreSQL
 
 ---
 
