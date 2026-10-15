@@ -2,16 +2,27 @@
 package main
 
 import (
+	"log"
+
 	// Importamos el framework principal Fiber.
 	"github.com/gofiber/fiber/v2"
 	// Importamos el middleware CORS para gestionar la seguridad entre distintos puertos/dominios.
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	// Importamos nuestro propio paquete de rutas para delegarle la configuración de los endpoints.
 	"backend/routes"
+	// Importamos el paquete config para inicializar la base de datos.
+	"backend/config"
 )
 
 // func main es el punto de entrada de la aplicación en Go. Todo comienza a ejecutarse aquí.
 func main() {
+	// Inicializar la conexión a la base de datos.
+	if err := config.InitDB(); err != nil {
+		log.Fatalf("Error al inicializar la base de datos: %v", err)
+	}
+	// Asegurar que la conexión se cierre al terminar la aplicación.
+	defer config.CloseDB()
+
 	// Instanciamos una nueva aplicación de Fiber y la guardamos en la variable 'app'.
 	app := fiber.New()
 
@@ -27,6 +38,7 @@ func main() {
 	routes.SetupRoutes(app)
 
 	// Ponemos a la aplicación a escuchar peticiones en el puerto 3000 de la máquina local. (Bloquea el hilo de ejecución).
+	log.Println("Servidor Go/Fiber iniciado en el puerto 3000")
 	app.Listen(":3000")
 }
 

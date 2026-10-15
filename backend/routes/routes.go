@@ -21,4 +21,7 @@ func SetupRoutes(app *fiber.App) {
 
 	// Definimos una ruta HTTP GET en "/api/productos/:id" para obtener un producto por ID.
 	app.Get("/api/productos/:id", controllers.GetProductoPorID)
+
+	// Definimos una ruta HTTP GET en "/api/red" para obtener la red multinivel de referidos.
+	app.Get("/api/red", controllers.ObtenerRed)
 }
