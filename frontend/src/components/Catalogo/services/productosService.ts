@@ -1,22 +1,26 @@
 // src/components/Catalogo/services/productosService.ts
 // Capa de servicios del catálogo, organizada por feature (Catalogo).
-// Actualmente devuelve datos de ejemplo (mock) simulando una llamada asíncrona.
-// En la Unidad 2, estas funciones se reemplazarán por fetch a GET /api/productos
-// sin necesidad de modificar los componentes que las consumen.
+// Consume los endpoints reales de la API Go/Fiber (/api/productos).
 
-import { productosMock } from "../data/productos";
 import type { IProducto } from "../interfaces/iproducto";
 
-// Simula GET /api/productos (lista completa)
-export const getProductos = (): Promise<IProducto[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(productosMock), 400);
-  });
+// Obtiene la lista completa de productos desde GET /api/productos
+export const getProductos = async (): Promise<IProducto[]> => {
+  const response = await fetch("/api/productos");
+  if (!response.ok) {
+    throw new Error("Error al obtener productos desde la API");
+  }
+  return response.json();
 };
 
-// Simula GET /api/productos/:id (detalle de un producto)
-export const getProductoById = (id: number): Promise<IProducto | undefined> => {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(productosMock.find((p) => p.id === id)), 300);
-  });
+// Obtiene un producto por ID desde GET /api/productos/:id
+export const getProductoById = async (id: number): Promise<IProducto | undefined> => {
+  const response = await fetch(`/api/productos/${id}`);
+  if (response.status === 404) {
+    return undefined;
+  }
+  if (!response.ok) {
+    throw new Error("Error al buscar producto en la API");
+  }
+  return response.json();
 };

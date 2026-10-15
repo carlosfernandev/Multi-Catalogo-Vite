@@ -2,7 +2,9 @@
 // Red multinivel visual (Tema 5):
 // - Resumen: referidos activos, ventas de la red, comisiones del mes y nivel alcanzado
 // - Árbol jerárquico recursivo de referidos con comisión calculada por nivel
-import { redInicial, contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido, TASA_COMISION, type Referido } from './MiRed/data/red';
+import { useState, useEffect } from 'react';
+import { contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido, TASA_COMISION, type Referido } from './MiRed/data/red';
+import { getRed } from './MiRed/services/redService';
 
 // Colores y etiquetas por nivel para el árbol
 const NIVEL_ESTILO: Record<number, { badge: string; border: string; tasa: string }> = {
@@ -53,11 +55,44 @@ const NodoReferido = ({ nodo }: { nodo: Referido }) => {
 };
 
 const MiRed = () => {
+  const [red, setRed] = useState<Referido | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getRed()
+      .then((data) => {
+        setRed(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Error al cargar la red");
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <p className="text-slate-500 font-medium">Cargando red de referidos...</p>
+      </div>
+    );
+  }
+
+  if (error || !red) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-lg">
+        <p className="font-semibold">Error al cargar la red</p>
+        <p className="text-sm mt-1">{error ?? "No se encontraron datos de la red."}</p>
+      </div>
+    );
+  }
+
   // KPIs derivados de los datos de la red (funciones puras en data/red.ts)
-  const referidosActivos = contarRed(redInicial);
-  const ventasRed = sumarVentasRed(redInicial);
-  const comisionesMes = sumarComisiones(redInicial);
-  const nivel = nivelAlcanzado(redInicial.hijos?.length ?? 0);
+  const referidosActivos = contarRed(red);
+  const ventasRed = sumarVentasRed(red);
+  const comisionesMes = sumarComisiones(red);
+  const nivel = nivelAlcanzado(red.hijos?.length ?? 0);
 
   const resumen = [
     { etiqueta: "Referidos Activos", valor: referidosActivos.toString(), color: "text-indigo-600" },
@@ -91,10 +126,10 @@ const MiRed = () => {
         <div className="bg-slate-900 text-white rounded-lg p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold">
-              {redInicial.nombre.charAt(0)}
+              {red.nombre.charAt(0)}
             </div>
             <div>
-              <p className="font-semibold">{redInicial.nombre}</p>
+              <p className="font-semibold">{red.nombre}</p>
               <p className="text-xs text-slate-300">Nivel alcanzado: {nivel}</p>
             </div>
           </div>
@@ -104,7 +139,7 @@ const MiRed = () => {
         </div>
 
         <ul className="space-y-3">
-          {redInicial.hijos?.map((hijo) => (
+          {red.hijos?.map((hijo) => (
             <NodoReferido key={hijo.id} nodo={hijo} />
           ))}
         </ul>
