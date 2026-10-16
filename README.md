@@ -8,13 +8,15 @@ Combina una SPA en React con un núcleo transaccional en Go/Fiber, persistencia 
 ## 🏛️ Arquitectura
 
 ```
-React SPA (:5173, proxy /api) ──fetch──► Go/Fiber API (:3000, PORT) ──pgx────► PostgreSQL 16 (:5432, Docker)
-                                               │
-                                               └──go-redis──► Redis (:6379, Docker) — Cache-Aside
+React SPA (:5173, proxy /api)
+   ├── /api/tx/*   ──► Go/Fiber API (:3000) ───pgx─────► PostgreSQL 16 (:5432, Docker)
+   └── /api/saas/* ──► FastAPI SaaS (:8000) ──asyncpg──┤         │
+                                                        └──go-redis──► Redis (:6379, Docker)
 ```
 
 - **Frontend (`frontend/`):** React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7.
-- **Backend (`backend/`):** Go 1.26, Fiber v2, pgx v5, Redis (go-redis v9), JWT (HS256) y bcrypt.
+- **Backend Transaccional (`backend/`):** Go 1.26, Fiber v2, pgx v5, Redis (go-redis v9), JWT (HS256) y bcrypt.
+- **Capa SaaS Multitenant (`Unidad3_SaaS/`):** Python 3.10+, FastAPI, Pydantic v2, Uvicorn.
 - **Infraestructura (`backend/docker-compose.yml`):** PostgreSQL 16 y Redis Alpine administrados con perfiles (`infra`).
 
 ---
@@ -48,7 +50,22 @@ go run .
 - Puedes configurar el puerto con la variable de entorno `PORT` si necesitas otro puerto: `PORT=3001 go run .`.
 - Endpoint de verificación: `GET http://localhost:3000/api/health` retorna `{"status":"ok","database":"up","cache":"up"}`.
 
-### 3. Iniciar el Frontend (React + Vite)
+### 3. Iniciar la Capa SaaS Multitenant (Python / FastAPI) [Opcional - Unidad 3]
+
+En una terminal separada, arranca el microservicio SaaS:
+
+```bash
+cd Unidad3_SaaS
+pip install -r requirements.txt
+python main.py
+# O con uvicorn: uvicorn main:app --reload --port 8000
+```
+
+- El microservicio iniciará en `http://localhost:8000`.
+- Documentación Swagger interactiva: `http://localhost:8000/docs`.
+- Endpoint de verificación: `GET http://localhost:8000/api/saas/health`.
+
+### 4. Iniciar el Frontend (React + Vite)
 
 En otra terminal separada, instala las dependencias y arranca el servidor de desarrollo:
 

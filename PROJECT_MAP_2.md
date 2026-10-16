@@ -87,9 +87,26 @@ Capas: `routes` → `controllers` → `repository` / `cache` (dependencias inyec
 | `.env` (gitignored) / `.env.example` | `DB_HOST/PORT/USER/PASSWORD/NAME` + `REDIS_HOST/PORT`. Puerto host por defecto **5432** (o configurable con `DB_PORT`). |
 | `README.md` | Arranque, variables, caché, checkout y simulación de fallas. |
 
+## Unidad3_SaaS/ — Capa SaaS Multitenant (FastAPI)
+
+Stack: Python 3.10+ + FastAPI + Pydantic v2 + Uvicorn.
+Comandos (en `Unidad3_SaaS/`): `pip install -r requirements.txt` | `python main.py` (:8000, configurable con `PORT`) | `uvicorn main:app --reload --port 8000`.
+
+| Ruta (`Unidad3_SaaS/`) | Responsabilidad |
+|---|---|
+| `main.py` | Entry point FastAPI: CORS, manejador de errores unificado `{status, message, details}`, routers `/api/saas`. |
+| `app/config.py` | Variables de entorno con Pydantic Settings (`PORT`, DB, Redis, JWT). |
+| `app/schemas/schemas.py` | Esquemas Pydantic: `TenantCreate`, `TenantOut`, `TenantUpdate`, `CatalogoPersonalizadoOut`, `HealthResponse`, `APIErrorResponse`. |
+| `app/routers/health.py` | `GET /api/saas/health` — monitoreo de estado y verificación TCP de Postgres y Redis. |
+| `app/routers/tenants.py` | `GET /api/saas/tenants`, `POST /api/saas/tenants`, `GET /api/saas/tenants/{id}`, `PUT /api/saas/tenants/{id}`. |
+| `app/routers/catalogos.py` | `GET /api/saas/catalogos/{tenant_id}`, `POST /api/saas/catalogos` — catálogos personalizados por distribuidor. |
+| `app/services/tenant_service.py` | Lógica de negocio y persistencia en memoria/DB de inquilinos y catálogos. |
+| `requirements.txt` | Dependencias mínimas de FastAPI y Uvicorn. |
+| `README.md` | Instrucciones de ejecución, endpoints y contratos. |
+
 ## Datos y contratos clave
 
-- Errores API: siempre `{"status":N,"message":"...","details"?}` (struct `APIError`).
+- Errores API: siempre `{"status":N,"message":"...","details"?}` (contrato común Go/Fiber y FastAPI).
 - Login OK: `{"token","email","rol"}`. Cuentas: `admin@upse.edu.ec`/`cliente@upse.edu.ec` — `123456`.
 - Checkout: `POST /api/checkout` `{usuario_email, cliente:{nombre,email,direccion,ciudad,telefono}, metodo_pago, items:[{producto_id,cantidad}]}` → `201 {"pedido_id","numero","total","estado","fecha","items"}`; el total se recalcula en servidor y el stock se descuenta en la misma transacción.
 - Árbol de referidos: raíz id 0 "Tú", 7 nodos, comisiones por nivel (front: `frontend/src/components/MiRed/data/red.ts`).
@@ -97,9 +114,8 @@ Capas: `routes` → `controllers` → `repository` / `cache` (dependencias inyec
 
 ## Notas operativas
 
-- Puertos: PostgreSQL **5432** (en `backend/docker-compose.yml`, o configurable si hay otro Postgres local), Redis **6379**, API **3000**, Vite **5173** (`frontend/vite.config.ts`).
+- Puertos: PostgreSQL **5432** (en `backend/docker-compose.yml`, o configurable si hay otro Postgres local), Redis **6379**, API Go **3000**, FastAPI SaaS **8000**, Vite **5173** (`frontend/vite.config.ts`).
 - Puerto API configurable con `PORT` (defecto 3000): si otro servicio ocupa 3000, usar `PORT=3001 go run .`.
 - Caché Cache-Aside: `productos:all` (TTL 5 min) y `red:tree:{email}` (TTL 10 min); si Redis no responde, la API consulta PostgreSQL directamente. El checkout invalida ambas claves (`red:tree:*`).
 - Comisiones MLM: Goroutine tras COMMIT suma `total` a `ventas` del nodo del comprador (`referidos.usuario_id`) y acredita 10/5/2 % a su cadena ascendente (máx. 3 niveles por `parent_id`). Con el seed actual, `cliente` → Diana Paz (nivel 3) acredita a Diana, Carlos Ruiz y Ana García.
-- Passwords en texto plano (temporal didáctico); token JWT ficticio; endpoints sin auth real (fase U2-T4 introduce bcrypt y JWT real).
-- Estructura del repositorio: `frontend/`, `backend/` y los `.md` raíz.
+- Estructura del repositorio: `frontend/`, `backend/`, `Unidad3_SaaS/` y los `.md` raíz.

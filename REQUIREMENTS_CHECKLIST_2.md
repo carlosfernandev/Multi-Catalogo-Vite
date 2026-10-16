@@ -20,10 +20,10 @@
 
 | Ítem | Valor |
 |---|---|
-| **Hito actual** | **Unidades 1 y 2 completadas** (SPA con sesión JWT persistida + backend seguro: bcrypt, JWT real, rutas protegidas, health con dependencias) |
-| **Última tarea completada** | Seguridad U2-T4 (DI NewControllers + bcrypt + JWT real + RequireAuth + identidad por token + FOR UPDATE ACID + health check con ping) (2026-10-16) |
-| **Siguiente tarea pendiente** | Commit del trabajo actual; luego U3-T1: scaffold FastAPI `Unidad3_SaaS/` |
-| **Bloqueadores** | Ninguno. Servicios en `backend/docker-compose.yml`: PostgreSQL **5432**, Redis **6379**, API **3000** |
+| **Hito actual** | **Unidad 3 iniciada** (Scaffold FastAPI `Unidad3_SaaS/` completado: schemas Pydantic v2, routers `/api/saas/health`, `/api/saas/tenants`, `/api/saas/catalogos`, error handling unificado y CORS) |
+| **Última tarea completada** | U3-T1 · Scaffold microservicio FastAPI SaaS `Unidad3_SaaS/` (2026-10-16) |
+| **Siguiente tarea pendiente** | U3-T2 · Conexión async a base de datos PostgreSQL multitenant y middleware de subdominios |
+| **Bloqueadores** | Ninguno. Servicios en `backend/docker-compose.yml`: PostgreSQL **5432**, Redis **6379**, API Go **3000**, FastAPI **8000** |
 
 ## Arquitectura objetivo del semestre
 
@@ -123,3 +123,16 @@ React SPA (:5173, proxy /api) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 - [x] Errores sanitizados: `Details` solo con `APP_ENV=dev`; `ErrCantidadInvalida` propio (400 "cantidad debe ser mayor que cero", distinto de stock)
 
 ---
+
+# UNIDAD 3 — CAPA SAAS MULTITENANT (Python/FastAPI)
+
+## U3-T1 · Scaffold microservicio FastAPI y arquitectura multitenant
+
+> Microservicio FastAPI en `Unidad3_SaaS/` con puerto configurable, CORS para el frontend,
+> contrato de error estándar y routers bajo `/api/saas/`.
+
+- [x] Estructura modular `app/` (`config.py`, `schemas/`, `routers/`, `services/`) + `requirements.txt` y `.env.example`
+- [x] Contrato de error unificado `{status, message, details}` compatible con Go/Fiber (manejadores de excepción en `main.py`)
+- [x] Endpoint `GET /api/saas/health` con verificación TCP de Postgres y Redis
+- [x] Endpoints CRUD de inquilinos: `GET /api/saas/tenants`, `POST /api/saas/tenants`, `GET /api/saas/tenants/{id}`, `PUT /api/saas/tenants/{id}`
+- [x] Endpoints de catálogos personalizados por distribuidor: `GET /api/saas/catalogos/{tenant_id}`, `POST /api/saas/catalogos`
