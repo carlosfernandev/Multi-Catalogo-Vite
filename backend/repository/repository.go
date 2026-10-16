@@ -6,16 +6,35 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"backend/config"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"backend/models"
 )
 
+// DBRepository es el contrato de acceso a datos que se inyecta en los controladores.
+// Los controladores dependen de esta interfaz, no de PostgreSQL directamente.
+type DBRepository interface {
+	BuscarUsuarioPorCredenciales(ctx context.Context, email, password string) (*models.Usuario, error)
+	ObtenerProductos(ctx context.Context) ([]models.Producto, error)
+	ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error)
+	ObtenerRed(ctx context.Context) ([]models.Referido, error)
+}
+
+// PostgresRepository implementa DBRepository usando un pool de pgx.
+type PostgresRepository struct {
+	db *pgxpool.Pool
+}
+
+// NewPostgresRepository crea el repositorio inyectando el pool de conexiones.
+func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
+	return &PostgresRepository{db: db}
+}
+
 // BuscarUsuarioPorCredenciales busca un usuario por email y password.
-func BuscarUsuarioPorCredenciales(ctx context.Context, email, password string) (*models.Usuario, error) {
+func (r *PostgresRepository) BuscarUsuarioPorCredenciales(ctx context.Context, email, password string) (*models.Usuario, error) {
 	query := `SELECT id, email, password, rol FROM usuarios WHERE email = $1 AND password = $2`
 	var usuario models.Usuario
 
-	err := config.DB.QueryRow(ctx, query, email, password).Scan(
+	err := r.db.QueryRow(ctx, query, email, password).Scan(
 		&usuario.ID,
 		&usuario.Email,
 		&usuario.Password,
@@ -33,9 +52,9 @@ func BuscarUsuarioPorCredenciales(ctx context.Context, email, password string) (
 }
 
 // ObtenerProductos devuelve la lista completa de productos.
-func ObtenerProductos(ctx context.Context) ([]models.Producto, error) {
+func (r *PostgresRepository) ObtenerProductos(ctx context.Context) ([]models.Producto, error) {
 	query := `SELECT id, nombre, descripcion, precio, categoria, img, galeria FROM productos ORDER BY id`
-	rows, err := config.DB.Query(ctx, query)
+	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener productos: %w", err)
 	}
@@ -67,11 +86,11 @@ func ObtenerProductos(ctx context.Context) ([]models.Producto, error) {
 }
 
 // ObtenerProductoPorID devuelve un producto específico por su ID.
-func ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error) {
+func (r *PostgresRepository) ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error) {
 	query := `SELECT id, nombre, descripcion, precio, categoria, img, galeria FROM productos WHERE id = $1`
 	var producto models.Producto
 
-	err := config.DB.QueryRow(ctx, query, id).Scan(
+	err := r.db.QueryRow(ctx, query, id).Scan(
 		&producto.ID,
 		&producto.Nombre,
 		&producto.Descripcion,
@@ -93,9 +112,9 @@ func ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error)
 
 // ObtenerRed devuelve la lista plana de referidos desde la base de datos.
 // La construcción del árbol jerárquico se hace en memoria después.
-func ObtenerRed(ctx context.Context) ([]models.Referido, error) {
+func (r *PostgresRepository) ObtenerRed(ctx context.Context) ([]models.Referido, error) {
 	query := `SELECT id, nombre, nivel, ventas, parent_id FROM referidos ORDER BY id`
-	rows, err := config.DB.Query(ctx, query)
+	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener referidos: %w", err)
 	}
@@ -103,20 +122,20 @@ func ObtenerRed(ctx context.Context) ([]models.Referido, error) {
 
 	var referidos []models.Referido
 	for rows.Next() {
-		var r models.Referido
+		var ref models.Referido
 		var parentID *int
 		err := rows.Scan(
-			&r.ID,
-			&r.Nombre,
-			&r.Nivel,
-			&r.Ventas,
+			&ref.ID,
+			&ref.Nombre,
+			&ref.Nivel,
+			&ref.Ventas,
 			&parentID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error al escanear referido: %w", err)
 		}
-		r.ParentID = parentID
-		referidos = append(referidos, r)
+		ref.ParentID = parentID
+		referidos = append(referidos, ref)
 	}
 
 	if err = rows.Err(); err != nil {

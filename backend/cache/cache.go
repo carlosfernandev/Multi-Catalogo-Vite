@@ -1,4 +1,4 @@
-// Paquete cache implementa las operaciones genéricas del patrón Cache-Aside sobre Redis.
+// Paquete cache implementa las operaciones del patrón Cache-Aside sobre Redis.
 package cache
 
 import (
@@ -8,18 +8,37 @@ import (
 	"log"
 	"time"
 
-	"backend/config"
 	"github.com/redis/go-redis/v9"
 )
 
+// CacheRepository es el contrato que usan los controladores para la caché.
+// Permite inyectar Redis en producción o una implementación falsa en pruebas.
+type CacheRepository interface {
+	// Obtener deserializa la clave en destino; retorna true si hubo Cache Hit.
+	Obtener(ctx context.Context, clave string, destino interface{}) bool
+	// Guardar serializa valor a JSON y lo almacena con el TTL indicado.
+	Guardar(ctx context.Context, clave string, valor interface{}, ttl time.Duration)
+}
+
+// RedisCache implementa CacheRepository con go-redis.
+// Si el cliente es nil (Redis no disponible), todas las operaciones son no-op.
+type RedisCache struct {
+	cliente *redis.Client
+}
+
+// NewRedisCache crea la caché inyectando el cliente de Redis.
+func NewRedisCache(cliente *redis.Client) *RedisCache {
+	return &RedisCache{cliente: cliente}
+}
+
 // Obtener intenta leer la clave desde Redis y deserializar el JSON en destino.
-// Retorna true si hubo Cache Hit. Cualquier error (Redis caído, JSON inválido) se trata como Cache Miss.
-func Obtener(ctx context.Context, clave string, destino interface{}) bool {
-	if config.RDB == nil {
+// Cualquier error (Redis caído, JSON inválido) se trata como Cache Miss.
+func (r *RedisCache) Obtener(ctx context.Context, clave string, destino interface{}) bool {
+	if r.cliente == nil {
 		return false
 	}
 
-	datos, err := config.RDB.Get(ctx, clave).Bytes()
+	datos, err := r.cliente.Get(ctx, clave).Bytes()
 	if err != nil {
 		if !errors.Is(err, redis.Nil) {
 			log.Printf("Advertencia: error al leer %q de Redis: %v", clave, err)
@@ -36,8 +55,8 @@ func Obtener(ctx context.Context, clave string, destino interface{}) bool {
 
 // Guardar serializa valor a JSON y lo almacena en Redis con el TTL indicado.
 // Un fallo al guardar no interrumpe la respuesta al cliente.
-func Guardar(ctx context.Context, clave string, valor interface{}, ttl time.Duration) {
-	if config.RDB == nil {
+func (r *RedisCache) Guardar(ctx context.Context, clave string, valor interface{}, ttl time.Duration) {
+	if r.cliente == nil {
 		return
 	}
 
@@ -47,7 +66,7 @@ func Guardar(ctx context.Context, clave string, valor interface{}, ttl time.Dura
 		return
 	}
 
-	if err := config.RDB.Set(ctx, clave, datos, ttl).Err(); err != nil {
+	if err := r.cliente.Set(ctx, clave, datos, ttl).Err(); err != nil {
 		log.Printf("Advertencia: error al guardar %q en Redis: %v", clave, err)
 	}
 }

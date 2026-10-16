@@ -10,8 +10,18 @@ import (
 	"backend/repository"
 )
 
+// AuthController agrupa los handlers de autenticación con su repositorio inyectado.
+type AuthController struct {
+	repo repository.DBRepository
+}
+
+// NewAuthController crea el controlador inyectando el repositorio.
+func NewAuthController(repo repository.DBRepository) *AuthController {
+	return &AuthController{repo: repo}
+}
+
 // Login es la función controladora que se ejecutará cuando el cliente envíe sus credenciales.
-func Login(c *fiber.Ctx) error {
+func (h *AuthController) Login(c *fiber.Ctx) error {
 	// Creamos una variable 'req' del tipo LoginRequest (ubicada en nuestro paquete models) para almacenar los datos.
 	var req models.LoginRequest
 
@@ -33,7 +43,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	// Buscar usuario en la base de datos usando el repository.
-	usuario, err := repository.BuscarUsuarioPorCredenciales(c.Context(), req.Email, req.Password)
+	usuario, err := h.repo.BuscarUsuarioPorCredenciales(c.Context(), req.Email, req.Password)
 	if err != nil {
 		return c.Status(500).JSON(models.APIError{
 			Status:  500,

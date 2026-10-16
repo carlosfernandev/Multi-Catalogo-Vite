@@ -11,18 +11,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// RDB es el cliente global de Redis. Es nil si Redis no está disponible.
-var RDB *redis.Client
-
-// InitRedis inicializa el cliente de Redis leyendo REDIS_URL (ej. redis://localhost:6379/0)
+// InitRedis crea el cliente de Redis leyendo REDIS_URL (ej. redis://localhost:6379/0)
 // o, en su defecto, REDIS_HOST, REDIS_PORT y REDIS_PASSWORD.
-func InitRedis() error {
+// El cliente se devuelve (sin variables globales) para inyectarlo en la caché desde main.go.
+func InitRedis() (*redis.Client, error) {
 	var opts *redis.Options
 
 	if url := os.Getenv("REDIS_URL"); url != "" {
 		parsed, err := redis.ParseURL(url)
 		if err != nil {
-			return fmt.Errorf("error al parsear REDIS_URL: %w", err)
+			return nil, fmt.Errorf("error al parsear REDIS_URL: %w", err)
 		}
 		opts = parsed
 	} else {
@@ -52,19 +50,9 @@ func InitRedis() error {
 	// Verificar conexión
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		client.Close()
-		return fmt.Errorf("error al conectar a Redis (%s): %w", opts.Addr, err)
+		return nil, fmt.Errorf("error al conectar a Redis (%s): %w", opts.Addr, err)
 	}
 
-	RDB = client
 	log.Printf("Conectado a Redis exitosamente (%s)", opts.Addr)
-	return nil
-}
-
-// CloseRedis cierra el cliente de Redis.
-// Debe llamarse al cerrar la aplicación (defer en main).
-func CloseRedis() {
-	if RDB != nil {
-		RDB.Close()
-		log.Println("Conexión a Redis cerrada")
-	}
+	return client, nil
 }
