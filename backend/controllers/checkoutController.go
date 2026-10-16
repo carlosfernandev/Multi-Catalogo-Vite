@@ -2,8 +2,11 @@
 package controllers
 
 import (
+	"context"
 	"errors"
+	"log"
 	"strings"
+	"time"
 
 	"backend/cache"
 	"backend/models"
@@ -13,6 +16,9 @@ import (
 
 // maxCantidadPorItem limita cantidades absurdas en una sola línea del carrito.
 const maxCantidadPorItem = 100
+
+// timeoutComisiones limita cuánto puede tardar la Goroutine de comisiones.
+const timeoutComisiones = 30 * time.Second
 
 // CheckoutController procesa compras con sus dependencias inyectadas.
 type CheckoutController struct {
@@ -54,7 +60,35 @@ func (h *CheckoutController) Checkout(c *fiber.Ctx) error {
 		return c.Status(500).JSON(models.APIError{Status: 500, Message: "No se pudo procesar el pedido", Details: err.Error()})
 	}
 
+	// COMMIT exitoso: las comisiones se calculan en segundo plano para no hacer esperar al cliente.
+	go h.calcularComisiones(pedido.ID, pedido.Total, usuario.ID)
+
+	log.Printf("Checkout: pedido %s confirmado (total %.2f), respondiendo 201", pedido.Numero, pedido.Total)
 	return c.Status(201).JSON(pedido)
+}
+
+// calcularComisiones corre en una Goroutine: no usa el contexto de Fiber (se recicla al
+// terminar la petición) y recupera cualquier panic para no tumbar el servidor.
+func (h *CheckoutController) calcularComisiones(pedidoID int, total float64, usuarioID int) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Error: panic en Goroutine de comisiones del pedido %d: %v", pedidoID, r)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutComisiones)
+	defer cancel()
+
+	inicio := time.Now()
+	comisiones, err := h.repo.AplicarComisiones(ctx, pedidoID, usuarioID, total)
+	if err != nil {
+		log.Printf("Error: comisiones del pedido %d no aplicadas: %v", pedidoID, err)
+		return
+	}
+	for _, com := range comisiones {
+		log.Printf("Goroutine: pedido %d -> %s (nivel %d) +%.2f", pedidoID, com.Nombre, com.Nivel, com.Monto)
+	}
+	log.Printf("Goroutine: %d comisiones del pedido %d aplicadas en %v", len(comisiones), pedidoID, time.Since(inicio))
 }
 
 // validarCheckout normaliza el cuerpo y retorna un mensaje de error (vacío si es válido).

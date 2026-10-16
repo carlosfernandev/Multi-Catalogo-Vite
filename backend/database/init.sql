@@ -105,3 +105,29 @@ CREATE TABLE IF NOT EXISTS pedido_items (
     precio_unitario DECIMAL(10, 2) NOT NULL,
     subtotal DECIMAL(12, 2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED
 );
+
+-- =====================================================================
+-- Fase 4 - Paso 4: comisiones de la red multinivel (Goroutine)
+-- =====================================================================
+
+-- Vincula una cuenta de usuario con su nodo en la red de referidos
+ALTER TABLE referidos ADD COLUMN IF NOT EXISTS usuario_id INTEGER UNIQUE REFERENCES usuarios(id);
+-- Saldo acumulado de comisiones de cada referido
+ALTER TABLE referidos ADD COLUMN IF NOT EXISTS saldo_comision DECIMAL(12, 2) NOT NULL DEFAULT 0;
+
+-- Dato de ejemplo: el cliente demo es "Diana Paz" (nivel 3), así su cadena ascendente cubre los niveles 3, 2 y 1
+UPDATE referidos SET usuario_id = (SELECT id FROM usuarios WHERE email = 'cliente@upse.edu.ec')
+WHERE id = 7 AND NOT EXISTS (
+    SELECT 1 FROM referidos WHERE usuario_id = (SELECT id FROM usuarios WHERE email = 'cliente@upse.edu.ec')
+);
+
+-- Historial de comisiones pagadas por pedido (UNIQUE evita pagar dos veces el mismo pedido)
+CREATE TABLE IF NOT EXISTS comisiones (
+    id SERIAL PRIMARY KEY,
+    pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+    referido_id INTEGER NOT NULL REFERENCES referidos(id) ON DELETE CASCADE,
+    nivel INTEGER NOT NULL,
+    monto DECIMAL(12, 2) NOT NULL,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (pedido_id, referido_id)
+);

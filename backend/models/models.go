@@ -100,3 +100,11 @@ type Pedido struct {
 	Fecha     time.Time    `json:"fecha"`
 	Items     []PedidoItem `json:"items"`
 }
+
+// Comision es el monto acreditado a un referido ascendente por un pedido.
+type Comision struct {
+	ReferidoID int     `json:"referido_id"`
+	Nombre     string  `json:"nombre"`
+	Nivel      int     `json:"nivel"`
+	Monto      float64 `json:"monto"`
+}

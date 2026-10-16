@@ -25,6 +25,7 @@ type DBRepository interface {
 	ObtenerRed(ctx context.Context) ([]models.Referido, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error)
 	CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error)
+	AplicarComisiones(ctx context.Context, pedidoID, usuarioID int, total float64) ([]models.Comision, error)
 }
 
 // ErrValidacion indica un error de datos del cliente (HTTP 400), p. ej. producto inexistente o sin stock.
@@ -325,4 +326,72 @@ func (r *PostgresRepository) CrearPedido(ctx context.Context, usuarioID int, req
 
 	pedido.Numero = fmt.Sprintf("MC-%06d", pedido.ID)
 	return pedido, nil
+}
+
+// AplicarComisiones suma la venta al nodo del comprador en la red y acredita comisiones
+// a su cadena ascendente (niveles 3, 2 y 1) en una sola transacción.
+// Las tasas por nivel son las mismas que usa el frontend (TASA_COMISION): 10 %, 5 % y 2 %.
+// Si el usuario no pertenece a la red, no hace nada.
+func (r *PostgresRepository) AplicarComisiones(ctx context.Context, pedidoID, usuarioID int, total float64) ([]models.Comision, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error al iniciar transacción de comisiones: %w", err)
+	}
+	defer tx.Rollback(context.Background())
+
+	// 1. La compra suma a las ventas del nodo del comprador (alimenta los KPIs del Dashboard).
+	var nodoID int
+	err = tx.QueryRow(ctx,
+		`UPDATE referidos SET ventas = ventas + $1 WHERE usuario_id = $2 RETURNING id`,
+		total, usuarioID,
+	).Scan(&nodoID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al actualizar ventas del referido: %w", err)
+	}
+
+	// 2. Recorrer la cadena ascendente, registrar cada comisión y acumular el saldo.
+	query := `
+		WITH RECURSIVE ascendentes AS (
+			SELECT id, nivel, parent_id FROM referidos WHERE id = $1
+			UNION ALL
+			SELECT r.id, r.nivel, r.parent_id
+			FROM referidos r JOIN ascendentes a ON r.id = a.parent_id
+		),
+		tasas (nivel, tasa) AS (VALUES (1, 0.10), (2, 0.05), (3, 0.02)),
+		nuevas AS (
+			INSERT INTO comisiones (pedido_id, referido_id, nivel, monto)
+			SELECT $2, a.id, a.nivel, ROUND($3::numeric * t.tasa, 2)
+			FROM ascendentes a JOIN tasas t USING (nivel)
+			RETURNING referido_id, nivel, monto
+		)
+		UPDATE referidos ref
+		SET saldo_comision = ref.saldo_comision + nuevas.monto
+		FROM nuevas
+		WHERE ref.id = nuevas.referido_id
+		RETURNING ref.id, ref.nombre, nuevas.nivel, nuevas.monto`
+	rows, err := tx.Query(ctx, query, nodoID, pedidoID, total)
+	if err != nil {
+		return nil, fmt.Errorf("error al calcular comisiones: %w", err)
+	}
+	var comisiones []models.Comision
+	for rows.Next() {
+		var com models.Comision
+		if err := rows.Scan(&com.ReferidoID, &com.Nombre, &com.Nivel, &com.Monto); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("error al leer comisión: %w", err)
+		}
+		comisiones = append(comisiones, com)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error al calcular comisiones: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error al confirmar comisiones: %w", err)
+	}
+	return comisiones, nil
 }
