@@ -44,14 +44,14 @@ React SPA (:5173) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 > Se presenta la pila tecnológica del semestre, la inversión de control y los
 > lineamientos del producto integrador MultiCatálogo (tienda + red MLM).
 
-- [ ] Pila definida y workspace estructurado (`frontend/`, `backend/`)
+- [x] Pila definida y workspace estructurado (`frontend/`, `backend/`)
 
 ## U1-T2 · Entorno SPA con Vite + Tailwind CSS
 
 > Scaffold del frontend: empaquetador Vite, Tailwind v4, estructura de carpetas
 > por responsabilidad (`components/`, `context/`, `services/`, `data/`).
 
-- [ ] Entorno SPA con Vite + Tailwind CSS
+- [x] Entorno SPA con Vite + Tailwind CSS
 - [ ] `frontend/package.json` renombrado a `multicatalogo-frontend`
 - [ ] `VITE_API_URL` en `frontend/.env` + `import.meta.env` (cliente único en `frontend/src/services/http.ts`)
 
@@ -59,7 +59,7 @@ React SPA (:5173) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 
 > Estado global con React Context: sesión de usuario y carrito por usuario.
 
-- [ ] `AuthContext` (sesión `{email, rol}`) y `CartContext` (carrito en localStorage por email) — `frontend/src/context/`
+- [x] `AuthContext` (sesión `{email, rol}`) y `CartContext` (carrito en localStorage por email) — `frontend/src/context/`
 - [ ] Persistencia de sesión en `frontend/src/context/AuthContext.tsx` (`multicatalogo_sesion`: usuario + JWT en localStorage)
 - [ ] Warnings eslint resueltos: split `frontend/src/context/auth.ts` + `frontend/src/context/cart.ts` (hooks/tipos separados del Provider); `npm run lint` → 0 errores, 0 warnings
 
@@ -67,17 +67,17 @@ React SPA (:5173) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 
 > Promesas con fetch, capa de servicios desacoplada y guardas de ruta por rol.
 
-- [ ] `frontend/src/components/Catalogo/services/productosService.ts`, `frontend/src/components/MiRed/services/redService.ts` + guardas `ProtectedRoute`/`AdminRoute` (`frontend/src/App.tsx`)
+- [x] `frontend/src/components/Catalogo/services/productosService.ts`, `frontend/src/components/MiRed/services/redService.ts` + guardas `ProtectedRoute`/`AdminRoute` (`frontend/src/App.tsx`)
 - [ ] `frontend/src/services/http.ts`: `apiFetch` único con `Authorization: Bearer` automático, `ApiError` tipado con status y helpers de sesión
 
 ## U1-T5 · Interfaces full-screen y flujos MLM (Práctica 03)
 
 > Vistas inmersivas del catálogo y flujo completo de compra y red multinivel.
 
-- [ ] F8 Login con rol + redirección por rol
-- [ ] F1 Storefront `/tienda` full-screen | F3 Catálogo con búsqueda/filtros | F2 Detalle `/producto/:id` | F4 Lightbox
-- [ ] F5 Carrito + checkout + confirmación | F6 Árbol multinivel comisiones 10/5/2 % | F7 Dashboard KPIs
-- [ ] `frontend/src/components/Checkout.tsx` → `POST /api/checkout` real (sin simulación) + manejo de `APIError`
+- [x] F8 Login con rol + redirección por rol
+- [x] F1 Storefront `/tienda` full-screen | F3 Catálogo con búsqueda/filtros | F2 Detalle `/producto/:id` | F4 Lightbox
+- [x] F5 Carrito + checkout + confirmación | F6 Árbol multinivel comisiones 10/5/2 % | F7 Dashboard KPIs
+- [x] `frontend/src/components/Checkout.tsx` → `POST /api/checkout` real (sin simulación) + manejo de `APIError`
 - [ ] Audit mobile-first: 375px sin overflow en Dashboard/MiRed/Catálogo; botones de acción ≥44px (`Añadir al Carrito`, steppers de `Carrito`, `Cerrar Sesión`)
 
 ---
@@ -88,14 +88,14 @@ React SPA (:5173) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 
 > Goroutines y contextos: procesos de misión crítica que no bloquean la respuesta HTTP.
 
-- [ ] Goroutine `procesarComisiones` tras el COMMIT del pedido (contexto propio, no el del request) — `backend/controllers/checkoutController.go`
+- [x] Goroutine `procesarComisiones` tras el COMMIT del pedido (contexto propio, no el del request) — `backend/controllers/checkoutController.go` (implementada como `calcularComisiones`)
 
 ## U2-T2 · Microservicios y APIs robustas (Fiber)
 
 > API REST en capas con contrato de error estándar y configuración por entorno.
 
-- [ ] Capas `backend/routes` → `backend/controllers` → `backend/repository`; endpoints login/productos/red/health
-- [ ] `APIError{status,message,details}` (`backend/models/models.go`) en todos los errores + validación de entrada (400/404)
+- [x] Capas `backend/routes` → `backend/controllers` → `backend/repository`; endpoints login/productos/red/health
+- [x] `APIError{status,message,details}` (`backend/models/models.go`) en todos los errores + validación de entrada (400/404)
 - [ ] Puerto de escucha configurable (`PORT`, defecto 3000) en `backend/main.go`
 - [ ] `/api/health` real: `HealthController` (`backend/controllers/healthController.go`) con ping a Postgres (503 si cae) y Redis (`"degraded"` si cae)
 
@@ -103,9 +103,9 @@ React SPA (:5173) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 
 > Dockeriza la BD, SQL puro con pgx, reconstrucción del árbol y Cache-Aside.
 
-- [ ] `backend/docker-compose.yml` Postgres 16 + Redis alpine + volumen + healthchecks
-- [ ] `backend/database/init.sql` (usuarios/productos/referidos + seed), `backend/repository/repository.go` a SQL real, árbol por `parent_id`
-- [ ] Cache-Aside (`backend/cache/cache.go`): `productos:all` TTL 5 min, `red:tree:{email}` TTL 10 min, degradación sin caché
+- [x] `backend/docker-compose.yml` Postgres 16 + Redis alpine + volumen + healthchecks
+- [x] `backend/database/init.sql` (usuarios/productos/referidos + seed), `backend/repository/repository.go` a SQL real, árbol por `parent_id`
+- [x] Cache-Aside (`backend/cache/cache.go`): `productos:all` TTL 5 min, `red:tree:{email}` TTL 10 min, degradación sin caché
 - [ ] Índices: `referidos(parent_id)`, `pedidos(cliente_email)`, `pedido_items(pedido_id)`, `productos(categoria)` (migración `backend/database/003_seguridad.sql` + `init.sql`)
 - [ ] Errores propagados: firmas del repo devuelven `error`; `ErrNoEncontrado`→404/401, resto→500 (nunca lista vacía silenciosa)
 
@@ -113,9 +113,9 @@ React SPA (:5173) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 
 > DI por interfaces en toda la cadena + transacción ACID del checkout + hardening.
 
-- [ ] Interfaces `DBRepository`/`CacheRepository`; `PostgresRepository`/`RedisCache`; structs de controladores; `NewControllers` en `backend/main.go`
-- [ ] `POST /api/checkout` ACID: `FOR UPDATE` + descuento de stock + `pedidos`/`pedido_items`, ROLLBACK → 400/500, total recalculado en servidor
-- [ ] Invalidación de caché tras compra (`productos:all`, `red:tree:*`) + migración `backend/database/002_checkout.sql`
+- [ ] Interfaces `DBRepository`/`CacheRepository`; `PostgresRepository`/`RedisCache`; structs de controladores; `NewControllers` en `backend/main.go` — *parcial: interfaces y structs listos; los controladores se instancian en `routes.SetupRoutes`, falta el agregador `NewControllers`*
+- [ ] `POST /api/checkout` ACID: `FOR UPDATE` + descuento de stock + `pedidos`/`pedido_items`, ROLLBACK → 400/500, total recalculado en servidor — *parcial: el stock se descuenta con `UPDATE ... WHERE stock >= n` (atómico), falta `SELECT ... FOR UPDATE`*
+- [ ] Invalidación de caché tras compra (`productos:all`, `red:tree:*`) + migración `backend/database/002_checkout.sql` — *parcial: se invalida `red:tree:*`; falta `productos:all` y la migración (hoy `init.sql` idempotente + `scripts/init-db.sh`)*
 - [ ] bcrypt de passwords (pgcrypto `crypt()/gen_salt('bf')` en migración `backend/database/003_seguridad.sql` + seed; login con `CompareHashAndPassword`)
 - [ ] JWT real (`JWT_SECRET` en env, claims `{sub,email,rol,iat,exp}` 2h, HS256) + `middleware.RequireAuth(secret)`/`RequireAdmin()` en `backend/middleware/`
 - [ ] Protegidos `/api/red` y `/api/checkout` con el middleware (401 sin token / token adulterado)
