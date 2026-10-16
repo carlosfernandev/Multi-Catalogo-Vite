@@ -1,0 +1,88 @@
+// Paquete controllers: procesamiento de la compra enviada desde Checkout.tsx.
+package controllers
+
+import (
+	"errors"
+	"strings"
+
+	"backend/cache"
+	"backend/models"
+	"backend/repository"
+	"github.com/gofiber/fiber/v2"
+)
+
+// maxCantidadPorItem limita cantidades absurdas en una sola línea del carrito.
+const maxCantidadPorItem = 100
+
+// CheckoutController procesa compras con sus dependencias inyectadas.
+type CheckoutController struct {
+	repo  repository.DBRepository
+	cache cache.CacheRepository
+}
+
+// NewCheckoutController crea el controlador inyectando repositorio y caché.
+func NewCheckoutController(repo repository.DBRepository, cache cache.CacheRepository) *CheckoutController {
+	return &CheckoutController{repo: repo, cache: cache}
+}
+
+// Checkout recibe el carrito, lo guarda en una transacción ACID y responde 201 con el pedido.
+func (h *CheckoutController) Checkout(c *fiber.Ctx) error {
+	var req models.CheckoutRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(models.APIError{Status: 400, Message: "Cuerpo de petición inválido"})
+	}
+
+	if msg := validarCheckout(&req); msg != "" {
+		return c.Status(400).JSON(models.APIError{Status: 400, Message: msg})
+	}
+
+	// El comprador debe ser una cuenta existente.
+	usuario, err := h.repo.BuscarUsuarioPorEmail(c.Context(), req.UsuarioEmail)
+	if err != nil {
+		return c.Status(500).JSON(models.APIError{Status: 500, Message: "Error al buscar usuario", Details: err.Error()})
+	}
+	if usuario == nil {
+		return c.Status(400).JSON(models.APIError{Status: 400, Message: "Usuario no registrado", Details: req.UsuarioEmail})
+	}
+
+	pedido, err := h.repo.CrearPedido(c.Context(), usuario.ID, req)
+	if err != nil {
+		var errValidacion *repository.ErrValidacion
+		if errors.As(err, &errValidacion) {
+			return c.Status(400).JSON(models.APIError{Status: 400, Message: errValidacion.Mensaje})
+		}
+		return c.Status(500).JSON(models.APIError{Status: 500, Message: "No se pudo procesar el pedido", Details: err.Error()})
+	}
+
+	return c.Status(201).JSON(pedido)
+}
+
+// validarCheckout normaliza el cuerpo y retorna un mensaje de error (vacío si es válido).
+func validarCheckout(req *models.CheckoutRequest) string {
+	req.UsuarioEmail = strings.TrimSpace(req.UsuarioEmail)
+	req.MetodoPago = strings.TrimSpace(req.MetodoPago)
+	cli := &req.Cliente
+	cli.Nombre = strings.TrimSpace(cli.Nombre)
+	cli.Email = strings.TrimSpace(cli.Email)
+	cli.Direccion = strings.TrimSpace(cli.Direccion)
+	cli.Ciudad = strings.TrimSpace(cli.Ciudad)
+	cli.Telefono = strings.TrimSpace(cli.Telefono)
+
+	switch {
+	case req.UsuarioEmail == "":
+		return "usuario_email es obligatorio"
+	case cli.Nombre == "" || cli.Email == "" || cli.Direccion == "" || cli.Ciudad == "" || cli.Telefono == "":
+		return "Todos los datos del cliente son obligatorios"
+	case req.MetodoPago == "":
+		return "metodo_pago es obligatorio"
+	case len(req.Items) == 0:
+		return "El carrito está vacío"
+	}
+
+	for _, item := range req.Items {
+		if item.ProductoID <= 0 || item.Cantidad <= 0 || item.Cantidad > maxCantidadPorItem {
+			return "Cada item debe tener producto_id válido y cantidad entre 1 y 100"
+		}
+	}
+	return ""
+}

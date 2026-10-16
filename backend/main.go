@@ -36,7 +36,7 @@ func main() {
 	}
 
 	// Instanciamos las dependencias concretas que se inyectarán en los controladores.
-	repo := repository.NewPostgresRepository(db)
+	repo := repository.NewPostgresRepository(db, repository.SimulacionDesdeEntorno())
 	cacheRepo := cache.NewRedisCache(rdb)
 
 	// Instanciamos una nueva aplicación de Fiber y la guardamos en la variable 'app'.

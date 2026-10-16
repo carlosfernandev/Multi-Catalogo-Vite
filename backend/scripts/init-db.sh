@@ -7,6 +7,6 @@ until docker exec multicatalogo_db pg_isready -U multicatalogo_user -d multicata
 done
 
 echo "PostgreSQL listo. Ejecutando init.sql..."
-docker exec multicatalogo_db psql -U multicatalogo_user -d multicatalogo -f - < database/init.sql
+docker exec -i multicatalogo_db psql -U multicatalogo_user -d multicatalogo -f - < database/init.sql
 
 echo "Inicialización completada."

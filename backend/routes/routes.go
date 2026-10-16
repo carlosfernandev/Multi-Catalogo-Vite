@@ -18,6 +18,7 @@ func SetupRoutes(app *fiber.App, repo repository.DBRepository, cacheRepo cache.C
 	authCtrl := controllers.NewAuthController(repo)
 	prodCtrl := controllers.NewProductoController(repo, cacheRepo)
 	redCtrl := controllers.NewRedController(repo, cacheRepo)
+	checkoutCtrl := controllers.NewCheckoutController(repo, cacheRepo)
 
 	// Definimos una ruta HTTP GET en "/api/health" para health check.
 	app.Get("/api/health", controllers.Health)
@@ -33,4 +34,7 @@ func SetupRoutes(app *fiber.App, repo repository.DBRepository, cacheRepo cache.C
 
 	// Definimos una ruta HTTP GET en "/api/red" para obtener la red multinivel de referidos.
 	app.Get("/api/red", redCtrl.ObtenerRed)
+
+	// Definimos una ruta HTTP POST en "/api/checkout" para procesar la compra (transacción ACID).
+	app.Post("/api/checkout", checkoutCtrl.Checkout)
 }

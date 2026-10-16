@@ -71,3 +71,37 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO referidos (id, nombre, nivel, ventas, parent_id) VALUES
     (7, 'Diana Paz', 3, 300.00, 4)
 ON CONFLICT (id) DO NOTHING;
+
+-- =====================================================================
+-- Fase 4: checkout transaccional (pedidos + detalle + stock simulado)
+-- Sentencias idempotentes: se pueden re-ejecutar sobre una DB existente.
+-- =====================================================================
+
+-- Stock simulado de cada producto (se descuenta dentro de la transacción del checkout)
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE productos DROP CONSTRAINT IF EXISTS productos_stock_no_negativo;
+ALTER TABLE productos ADD CONSTRAINT productos_stock_no_negativo CHECK (stock >= 0);
+
+-- Registro principal del pedido
+CREATE TABLE IF NOT EXISTS pedidos (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    cliente_nombre VARCHAR(255) NOT NULL,
+    cliente_email VARCHAR(255) NOT NULL,
+    direccion VARCHAR(500) NOT NULL,
+    ciudad VARCHAR(100) NOT NULL,
+    telefono VARCHAR(50) NOT NULL,
+    metodo_pago VARCHAR(50) NOT NULL,
+    total DECIMAL(12, 2) NOT NULL DEFAULT 0,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Detalle del pedido (la FK a productos aborta la transacción si el producto no existe)
+CREATE TABLE IF NOT EXISTS pedido_items (
+    id SERIAL PRIMARY KEY,
+    pedido_id INTEGER NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+    producto_id INTEGER NOT NULL REFERENCES productos(id),
+    cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+    precio_unitario DECIMAL(10, 2) NOT NULL,
+    subtotal DECIMAL(12, 2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED
+);

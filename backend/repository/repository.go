@@ -3,9 +3,15 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"backend/models"
 )
@@ -17,16 +23,46 @@ type DBRepository interface {
 	ObtenerProductos(ctx context.Context) ([]models.Producto, error)
 	ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error)
 	ObtenerRed(ctx context.Context) ([]models.Referido, error)
+	BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error)
+	CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error)
+}
+
+// ErrValidacion indica un error de datos del cliente (HTTP 400), p. ej. producto inexistente o sin stock.
+type ErrValidacion struct {
+	Mensaje string
+}
+
+func (e *ErrValidacion) Error() string { return e.Mensaje }
+
+// SimulacionFallas permite demostrar el ROLLBACK en clase sin editar el código.
+type SimulacionFallas struct {
+	// FallaAntesDeItems corta la transacción después de insertar el pedido y antes del detalle.
+	FallaAntesDeItems bool
+	// PausaAntesDeCommit espera antes del COMMIT (para detener el contenedor de PostgreSQL a mitad).
+	PausaAntesDeCommit time.Duration
+}
+
+// SimulacionDesdeEntorno lee CHECKOUT_FALLA_SIMULADA=true y CHECKOUT_PAUSA_COMMIT=<segundos>.
+func SimulacionDesdeEntorno() SimulacionFallas {
+	sim := SimulacionFallas{FallaAntesDeItems: os.Getenv("CHECKOUT_FALLA_SIMULADA") == "true"}
+	if seg, err := strconv.Atoi(os.Getenv("CHECKOUT_PAUSA_COMMIT")); err == nil && seg > 0 {
+		sim.PausaAntesDeCommit = time.Duration(seg) * time.Second
+	}
+	if sim.FallaAntesDeItems || sim.PausaAntesDeCommit > 0 {
+		log.Printf("Advertencia: simulación de fallas activa en checkout: %+v", sim)
+	}
+	return sim
 }
 
 // PostgresRepository implementa DBRepository usando un pool de pgx.
 type PostgresRepository struct {
-	db *pgxpool.Pool
+	db         *pgxpool.Pool
+	simulacion SimulacionFallas
 }
 
-// NewPostgresRepository crea el repositorio inyectando el pool de conexiones.
-func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
-	return &PostgresRepository{db: db}
+// NewPostgresRepository crea el repositorio inyectando el pool de conexiones y la simulación de fallas.
+func NewPostgresRepository(db *pgxpool.Pool, simulacion SimulacionFallas) *PostgresRepository {
+	return &PostgresRepository{db: db, simulacion: simulacion}
 }
 
 // BuscarUsuarioPorCredenciales busca un usuario por email y password.
@@ -44,6 +80,22 @@ func (r *PostgresRepository) BuscarUsuarioPorCredenciales(ctx context.Context, e
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil // Usuario no encontrado (no es error, simplemente no existe)
+		}
+		return nil, fmt.Errorf("error al buscar usuario: %w", err)
+	}
+
+	return &usuario, nil
+}
+
+// BuscarUsuarioPorEmail busca un usuario por su email (sin validar contraseña).
+func (r *PostgresRepository) BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error) {
+	query := `SELECT id, email, rol FROM usuarios WHERE email = $1`
+	var usuario models.Usuario
+
+	err := r.db.QueryRow(ctx, query, email).Scan(&usuario.ID, &usuario.Email, &usuario.Rol)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
 		}
 		return nil, fmt.Errorf("error al buscar usuario: %w", err)
 	}
@@ -183,4 +235,94 @@ func ConstruirArbolRed(referidos []models.Referido) *models.Referido {
 	}
 
 	return raiz
+}
+
+// CrearPedido guarda el pedido y su detalle dentro de una única transacción ACID:
+// BEGIN → INSERT pedidos → INSERT pedido_items + descuento de stock → total → COMMIT.
+// Si cualquier paso falla, el defer ejecuta ROLLBACK y no queda ningún "pedido fantasma".
+func (r *PostgresRepository) CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error al iniciar la transacción: %w", err)
+	}
+	// ROLLBACK si se sale de la función sin COMMIT (tras un COMMIT exitoso no hace nada).
+	defer func() {
+		if err := tx.Rollback(context.Background()); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			log.Printf("Advertencia: error en ROLLBACK: %v", err)
+		}
+	}()
+
+	// 1. Registro principal del pedido.
+	pedido := &models.Pedido{UsuarioID: usuarioID, Estado: "confirmado"}
+	err = tx.QueryRow(ctx,
+		`INSERT INTO pedidos (usuario_id, cliente_nombre, cliente_email, direccion, ciudad, telefono, metodo_pago)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		usuarioID, req.Cliente.Nombre, req.Cliente.Email, req.Cliente.Direccion,
+		req.Cliente.Ciudad, req.Cliente.Telefono, req.MetodoPago,
+	).Scan(&pedido.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error al insertar el pedido: %w", err)
+	}
+
+	if r.simulacion.FallaAntesDeItems {
+		return nil, errors.New("falla simulada: caída del sistema antes de procesar los items")
+	}
+
+	// 2. Detalle del pedido: el precio se toma de PostgreSQL y se descuenta el stock simulado.
+	pedido.Items = make([]models.PedidoItem, 0, len(req.Items))
+	for _, item := range req.Items {
+		linea := models.PedidoItem{ProductoID: item.ProductoID, Cantidad: item.Cantidad}
+
+		// La FK pedido_items.producto_id aborta la transacción si el producto no existe.
+		err = tx.QueryRow(ctx,
+			`INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
+			 VALUES ($1, $2, $3, COALESCE((SELECT precio FROM productos WHERE id = $2), 0))
+			 RETURNING precio_unitario, subtotal`,
+			pedido.ID, item.ProductoID, item.Cantidad,
+		).Scan(&linea.PrecioUnitario, &linea.Subtotal)
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+				return nil, &ErrValidacion{Mensaje: fmt.Sprintf("El producto %d no existe", item.ProductoID)}
+			}
+			return nil, fmt.Errorf("error al insertar el detalle del pedido: %w", err)
+		}
+
+		// Descuento atómico del stock: solo si alcanza la cantidad solicitada.
+		err = tx.QueryRow(ctx,
+			`UPDATE productos SET stock = stock - $1 WHERE id = $2 AND stock >= $1 RETURNING nombre`,
+			item.Cantidad, item.ProductoID,
+		).Scan(&linea.Nombre)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, &ErrValidacion{Mensaje: fmt.Sprintf("Stock insuficiente para el producto %d", item.ProductoID)}
+			}
+			return nil, fmt.Errorf("error al actualizar el stock: %w", err)
+		}
+
+		pedido.Items = append(pedido.Items, linea)
+	}
+
+	// 3. Total del pedido calculado en la base de datos a partir del detalle.
+	err = tx.QueryRow(ctx,
+		`UPDATE pedidos SET total = (SELECT COALESCE(SUM(subtotal), 0) FROM pedido_items WHERE pedido_id = $1)
+		 WHERE id = $1 RETURNING total, creado_en`,
+		pedido.ID,
+	).Scan(&pedido.Total, &pedido.Fecha)
+	if err != nil {
+		return nil, fmt.Errorf("error al calcular el total del pedido: %w", err)
+	}
+
+	if r.simulacion.PausaAntesDeCommit > 0 {
+		log.Printf("Simulación: pausa de %s antes del COMMIT del pedido %d", r.simulacion.PausaAntesDeCommit, pedido.ID)
+		time.Sleep(r.simulacion.PausaAntesDeCommit)
+	}
+
+	// 4. COMMIT: a partir de aquí el pedido es definitivo.
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error al confirmar la transacción: %w", err)
+	}
+
+	pedido.Numero = fmt.Sprintf("MC-%06d", pedido.ID)
+	return pedido, nil
 }

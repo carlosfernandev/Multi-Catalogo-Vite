@@ -1,6 +1,8 @@
 // Declaramos el paquete models para agrupar las estructuras de datos de la aplicación.
 package models
 
+import "time"
+
 // LoginRequest define la estructura esperada para el cuerpo de la petición (JSON) al iniciar sesión.
 type LoginRequest struct {
 	// Email representa el correo del usuario; la etiqueta `json:"email"` indica cómo se mapea el JSON a esta variable.
@@ -53,4 +55,48 @@ type APIError struct {
 	Message string `json:"message"`
 	// Details es información adicional opcional sobre el error.
 	Details interface{} `json:"details,omitempty"`
+}
+
+// ClienteCheckout son los datos de envío que llena el cliente en Checkout.tsx.
+type ClienteCheckout struct {
+	Nombre    string `json:"nombre"`
+	Email     string `json:"email"`
+	Direccion string `json:"direccion"`
+	Ciudad    string `json:"ciudad"`
+	Telefono  string `json:"telefono"`
+}
+
+// CheckoutItem es un producto del carrito. El precio NO se recibe del cliente: se lee de PostgreSQL.
+type CheckoutItem struct {
+	ProductoID int `json:"producto_id"`
+	Cantidad   int `json:"cantidad"`
+}
+
+// CheckoutRequest es el cuerpo JSON de POST /api/checkout.
+type CheckoutRequest struct {
+	// UsuarioEmail es el correo de la cuenta autenticada que realiza la compra.
+	UsuarioEmail string          `json:"usuario_email"`
+	Cliente      ClienteCheckout `json:"cliente"`
+	MetodoPago   string          `json:"metodo_pago"`
+	Items        []CheckoutItem  `json:"items"`
+}
+
+// PedidoItem es una línea del detalle de un pedido confirmado.
+type PedidoItem struct {
+	ProductoID     int     `json:"producto_id"`
+	Nombre         string  `json:"nombre"`
+	Cantidad       int     `json:"cantidad"`
+	PrecioUnitario float64 `json:"precio_unitario"`
+	Subtotal       float64 `json:"subtotal"`
+}
+
+// Pedido es la respuesta de un checkout confirmado (tras el COMMIT).
+type Pedido struct {
+	ID        int          `json:"pedido_id"`
+	Numero    string       `json:"numero"`
+	UsuarioID int          `json:"-"`
+	Total     float64      `json:"total"`
+	Estado    string       `json:"estado"`
+	Fecha     time.Time    `json:"fecha"`
+	Items     []PedidoItem `json:"items"`
 }

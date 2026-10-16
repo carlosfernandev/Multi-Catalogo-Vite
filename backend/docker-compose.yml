@@ -39,6 +39,9 @@ services:
       DB_NAME: multicatalogo
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # Simulación de fallas para demostrar el ROLLBACK (vacío/0 = desactivado)
+      CHECKOUT_FALLA_SIMULADA: ${CHECKOUT_FALLA_SIMULADA:-false}
+      CHECKOUT_PAUSA_COMMIT: ${CHECKOUT_PAUSA_COMMIT:-0}
     ports:
       - "3000:3000"
     depends_on:
