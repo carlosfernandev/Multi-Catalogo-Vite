@@ -2,8 +2,14 @@
 package controllers
 
 import (
+	"os"
+	"time"
+
 	// Importamos el framework Fiber para tener acceso al contexto (c *fiber.Ctx) de la petición HTTP.
 	"github.com/gofiber/fiber/v2"
+	// Importamos JWT y bcrypt para seguridad robusta.
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 	// Importamos nuestro paquete de modelos para poder usar la estructura LoginRequest.
 	"backend/models"
 	// Importamos el repository para acceder a la base de datos.
@@ -18,6 +24,14 @@ type AuthController struct {
 // NewAuthController crea el controlador inyectando el repositorio.
 func NewAuthController(repo repository.DBRepository) *AuthController {
 	return &AuthController{repo: repo}
+}
+
+// detallesSeguros sanitiza el mensaje de error: solo se expone en modo desarrollo.
+func detallesSeguros(err error) string {
+	if os.Getenv("APP_ENV") == "dev" && err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 // Login es la función controladora que se ejecutará cuando el cliente envíe sus credenciales.
@@ -42,13 +56,13 @@ func (h *AuthController) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Buscar usuario en la base de datos usando el repository.
-	usuario, err := h.repo.BuscarUsuarioPorCredenciales(c.Context(), req.Email, req.Password)
+	// Buscar usuario en la base de datos por email.
+	usuario, err := h.repo.BuscarUsuarioPorEmail(c.Context(), req.Email)
 	if err != nil {
 		return c.Status(500).JSON(models.APIError{
 			Status:  500,
 			Message: "Error al buscar usuario",
-			Details: err.Error(),
+			Details: detallesSeguros(err),
 		})
 	}
 
@@ -60,12 +74,43 @@ func (h *AuthController) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Generar token ficticio (en producción usar JWT real).
-	token := "fake-jwt-token-" + usuario.Rol
+	// Validación de contraseña mediante bcrypt con fallback a texto plano para compatibilidad de migración.
+	errBcrypt := bcrypt.CompareHashAndPassword([]byte(usuario.Password), []byte(req.Password))
+	if errBcrypt != nil && usuario.Password != req.Password {
+		return c.Status(401).JSON(models.APIError{
+			Status:  401,
+			Message: "Credenciales incorrectas",
+		})
+	}
 
-	// Retornar respuesta exitosa con token, email y rol.
+	// Obtener la clave secreta para la firma del token desde variables de entorno.
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "multicatalogo-super-secret-jwt-key"
+	}
+
+	// Generar JWT real con claims estándar (sub, email, rol, iat, exp 2h) firmado con HS256.
+	claims := jwt.MapClaims{
+		"sub":   usuario.ID,
+		"email": usuario.Email,
+		"rol":   usuario.Rol,
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(2 * time.Hour).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(jwtSecret))
+	if err != nil {
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al generar token de autenticación",
+			Details: detallesSeguros(err),
+		})
+	}
+
+	// Retornar respuesta exitosa con token JWT real, email y rol.
 	return c.JSON(fiber.Map{
-		"token": token,
+		"token": signedToken,
 		"email": usuario.Email,
 		"rol":   usuario.Rol,
 	})

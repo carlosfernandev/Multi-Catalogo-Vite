@@ -4,11 +4,26 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 // 1. Tipos de rol que maneja la aplicación
 export type Rol = 'admin' | 'cliente';
 
-// 2. Usuario autenticado: correo + rol (lo entrega la API en /api/login)
+// 2. Usuario autenticado: correo, rol y token JWT
 export interface Usuario {
   email: string;
   rol: Rol;
+  token?: string;
 }
+
+const STORAGE_KEY = "multicatalogo_sesion";
+
+// Función utilitaria para obtener el token JWT almacenado
+export const getStoredToken = (): string | null => {
+  try {
+    const sesion = localStorage.getItem(STORAGE_KEY);
+    if (!sesion) return null;
+    const parsed = JSON.parse(sesion);
+    return parsed?.token ?? null;
+  } catch {
+    return null;
+  }
+};
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -32,17 +47,44 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [user, setUser] = useState<Usuario | null>(null);
+  const [user, setUser] = useState<Usuario | null>(() => {
+    try {
+      const sesion = localStorage.getItem(STORAGE_KEY);
+      if (!sesion) return null;
+      const parsed = JSON.parse(sesion);
+      return parsed?.email && parsed?.rol ? parsed : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const sesion = localStorage.getItem(STORAGE_KEY);
+      return Boolean(sesion);
+    } catch {
+      return false;
+    }
+  });
 
   const login = (usuario: Usuario) => {
     setIsAuthenticated(true);
     setUser(usuario);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario));
+    } catch (err) {
+      console.error("Error al persistir sesión en localStorage:", err);
+    }
   };
 
   const logout = () => {
     setIsAuthenticated(false);
     setUser(null);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      console.error("Error al remover sesión de localStorage:", err);
+    }
   };
 
   return (

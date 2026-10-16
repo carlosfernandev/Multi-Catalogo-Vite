@@ -33,13 +33,21 @@ export interface PedidoResponse {
   }[];
 }
 
+import { getStoredToken } from "../context/AuthContext";
+
 // Envía el pedido; si la API responde con error (400/500) lanza su mensaje
 export const crearPedido = async (pedido: CheckoutRequest): Promise<PedidoResponse> => {
   let response: Response;
+  const token = getStoredToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   try {
     response = await fetch("/api/checkout", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(pedido),
     });
   } catch {

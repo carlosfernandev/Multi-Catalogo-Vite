@@ -3,6 +3,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	// Importamos el framework principal Fiber.
 	"github.com/gofiber/fiber/v2"
@@ -12,8 +13,9 @@ import (
 	"backend/routes"
 	// Importamos el paquete config para inicializar la base de datos y Redis.
 	"backend/config"
-	// Importamos las implementaciones concretas de repositorio y caché para inyectarlas.
+	// Importamos controladores, implementaciones de repositorio y caché para inyectarlas.
 	"backend/cache"
+	"backend/controllers"
 	"backend/repository"
 )
 
@@ -39,23 +41,31 @@ func main() {
 	repo := repository.NewPostgresRepository(db, repository.SimulacionDesdeEntorno())
 	cacheRepo := cache.NewRedisCache(rdb)
 
+	// Ensamblamos la inyección de dependencias en el agregador de controladores (U2-T4).
+	ctrls := controllers.NewControllers(repo, cacheRepo, db, rdb)
+
 	// Instanciamos una nueva aplicación de Fiber y la guardamos en la variable 'app'.
 	app := fiber.New()
 
-	// Implementamos el middleware CORS a nivel global usando app.Use() para interceptar todas las peticiones entrantes.
+	// Implementamos el middleware CORS a nivel global permitiendo Authorization para tokens JWT.
 	app.Use(cors.New(cors.Config{
-		// Configuramos el CORS para permitir únicamente peticiones provenientes del frontend local en el puerto 5173.
-		AllowOrigins: "http://127.0.0.1:5173",
-		// Declaramos de forma explícita qué cabeceras (Headers) se permitirán en la comunicación.
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowOrigins: "http://127.0.0.1:5173, http://localhost:5173",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
-	// Llamamos a la función SetupRoutes de nuestro paquete 'routes', enviándole la instancia de nuestra 'app'.
-	routes.SetupRoutes(app, repo, cacheRepo)
+	// Registramos los endpoints inyectando los controladores.
+	routes.SetupRoutes(app, ctrls)
 
-	// Ponemos a la aplicación a escuchar peticiones en el puerto 3000 de la máquina local. (Bloquea el hilo de ejecución).
-	log.Println("Servidor Go/Fiber iniciado en el puerto 3000")
-	app.Listen(":3000")
+	// Puerto de escucha configurable con la variable de entorno PORT (por defecto 3000).
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
+	log.Printf("Servidor Go/Fiber iniciado en el puerto %s", port)
+	if err := app.Listen(":" + port); err != nil {
+		log.Fatalf("Error al iniciar el servidor: %v", err)
+	}
 }
 
 

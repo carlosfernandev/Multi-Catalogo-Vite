@@ -1,211 +1,208 @@
 # Backend — MultiCatálogo API
 
-API Go/Fiber con persistencia en PostgreSQL para el proyecto MultiCatálogo.
+API Go/Fiber de alta transaccionalidad con persistencia en PostgreSQL y caché en Redis para el proyecto MultiCatálogo.
 
-## Arquitectura
+---
+
+## 🏛️ Arquitectura
 
 - **Framework:** Fiber v2.52.15
-- **Base de datos:** PostgreSQL 16 (en Docker)
-- **Driver:** pgx/v5 (pool de conexiones)
-- **Configuración:** godotenv (variables de entorno)
-- **Caché:** Redis (`redis:alpine`) con go-redis/v9, patrón Cache-Aside
+- **Base de datos:** PostgreSQL 16 (en Docker, puerto 5432)
+- **Driver:** pgx/v5 (pool de conexiones concurrente)
+- **Caché:** Redis (`redis:alpine`, puerto 6379) con go-redis/v9 (patrón Cache-Aside)
+- **Seguridad:** Hashing con bcrypt (`golang.org/x/crypto/bcrypt`) y tokens JWT con HMAC-SHA256 (`github.com/golang-jwt/jwt/v5`)
+- **Concurrencia:** Goroutines asíncronas para cálculo y distribución de comisiones MLM en segundo plano
+- **Transaccionalidad:** Propiedades ACID con bloqueo pesimista `SELECT ... FOR UPDATE`
 
-## Estructura
+---
+
+## 📁 Estructura del Módulo
 
 ```
 backend/
 ├── cache/
-│   └── cache.go           # CacheRepository (Redis): Obtener, Guardar, Eliminar
+│   └── cache.go           # CacheRepository (Redis): Obtener, Guardar, Eliminar, EliminarPorPatron
 ├── config/
-│   ├── db.go              # Pool de conexiones PostgreSQL
-│   └── redis.go           # Cliente Redis
+│   ├── db.go              # Pool de conexiones pgxpool
+│   └── redis.go           # Cliente Redis con manejo de degradación
 ├── controllers/
-│   ├── authController.go  # POST /api/login
+│   ├── controllers.go     # Agregador Controllers + NewControllers (Inyección de dependencias)
+│   ├── authController.go  # POST /api/login (verificación bcrypt + emisión JWT)
 │   ├── prodController.go  # GET /api/productos, /api/productos/:id
-│   ├── redController.go   # GET /api/red (red multinivel)
-│   ├── checkoutController.go # POST /api/checkout (ACID + Goroutine)
-│   └── healthController.go # GET /api/health
+│   ├── redController.go   # GET /api/red (árbol multinivel)
+│   ├── checkoutController.go # POST /api/checkout (ACID + identidad por token + Goroutine)
+│   └── healthController.go # GET /api/health (ping a PostgreSQL y Redis)
+├── middleware/
+│   └── auth.go            # RequireAuth (validador de token Bearer JWT) y RequireAdmin
 ├── models/
-│   └── models.go          # Usuario, Producto, Referido, APIError
+│   └── models.go          # Usuario, Producto, Referido, Pedido, Checkout, APIError
 ├── repository/
-│   └── repository.go      # DBRepository / PostgresRepository
+│   └── repository.go      # DBRepository / PostgresRepository (SQL puro + FOR UPDATE)
 ├── routes/
-│   └── routes.go          # Registro de endpoints
+│   └── routes.go          # Registro de endpoints y protección con middlewares
 ├── database/
-│   └── init.sql           # Script de inicialización de DB
+│   ├── init.sql           # Esquema base y seed de datos iniciales
+│   ├── 002_checkout.sql   # Migración de tablas pedidos, pedido_items y stock
+│   └── 003_seguridad.sql  # Migración pgcrypto, índices de rendimiento y bcrypt
 ├── scripts/
-│   └── init-db.sh         # Script manual de inicialización
-├── docker-compose.yml     # Configuración PostgreSQL
-├── .env                  # Variables de entorno (no commiteado)
-├── go.mod, go.sum        # Dependencias Go
-└── main.go               # Punto de entrada
+│   └── init-db.sh         # Script manual de inicialización de base de datos
+├── docker-compose.yml     # Orquestación de infraestructura con perfiles
+├── .env                  # Variables de entorno
+├── go.mod, go.sum        # Dependencias del módulo Go
+└── main.go               # Entry point, ensamblado de DI y configuración CORS
 ```
 
-## Arranque
+---
 
-### Opción rápida: todo en Docker
+## 🚀 Arranque
+
+### Opción 1: Infraestructura en Docker + Backend local (Recomendado)
+
+Docker Compose está configurado con perfiles para levantar únicamente la infraestructura (`postgres` y `redis`), dejando el puerto `3000` libre para ejecutar la API en local:
 
 ```bash
 cd backend
-docker-compose up -d --build
-```
 
-Levanta `postgres` (5432), `redis` (6379) y `backend` (3000). En un volumen nuevo, `database/init.sql` se ejecuta automáticamente.
+# 1. Levantar PostgreSQL y Redis
+docker compose up -d
 
-### 1. Levantar PostgreSQL y Redis (Docker)
-
-```bash
-cd backend
-docker-compose up -d postgres redis
-```
-
-Esto levanta PostgreSQL 16 en el puerto 5432 con:
-- Usuario: `multicatalogo_user`
-- Contraseña: `multicatalogo_pass`
-- Base de datos: `multicatalogo`
-
-### 2. Inicializar la base de datos
-
-El script `init.sql` crea las tablas y pobla los datos semilla. Ejecutar manualmente:
-
-```bash
-./scripts/init-db.sh
-```
-
-Este script:
-- Espera a que PostgreSQL esté listo
-- Ejecuta `database/init.sql` (tablas: usuarios, productos, referidos)
-- Inserta datos de prueba (2 usuarios, 8 productos, 7 referidos)
-
-### 3. Iniciar el servidor Go
-
-```bash
+# 2. Iniciar el servidor Go
 go run .
 ```
 
-El servidor escuchará en `http://localhost:3000`.
+El servidor iniciará en `http://localhost:3000`.
 
-## Variables de entorno
+### Opción 2: Toda la pila contenerizada
 
-Archivo `.env` (crear si no existe):
+Si deseas levantar también el backend dentro de un contenedor Docker:
+
+```bash
+docker compose --profile all up -d --build
+```
+
+---
+
+## ⚙️ Variables de Entorno (`.env`)
+
+Crea o edita el archivo `.env` en la raíz de `backend/`:
 
 ```env
+# Base de datos PostgreSQL
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=multicatalogo_user
 DB_PASSWORD=multicatalogo_pass
 DB_NAME=multicatalogo
+
+# Caché Redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
-# Alternativa: REDIS_URL=redis://localhost:6379/0
+
+# Servidor y Seguridad
+PORT=3000
+JWT_SECRET=multicatalogo-super-secret-jwt-key
+APP_ENV=dev
+
+# Perfil de Docker Compose (por defecto levanta solo PostgreSQL y Redis)
+COMPOSE_PROFILES=infra
 ```
 
-## Caché (Redis, Cache-Aside)
+---
 
-| Endpoint | Clave | TTL |
-|----------|-------|-----|
-| `GET /api/productos` | `productos:all` | 5 min |
-| `GET /api/red?email=...` | `red:tree:{email}` (sin `email` → `anonimo`) | 10 min |
+## ⚡ Caché (Redis · Cache-Aside)
 
-La cabecera `X-Cache` indica `MISS` (consultó PostgreSQL) o `HIT` (respondió desde Redis). Si Redis no está disponible, la API sigue funcionando contra PostgreSQL.
+| Endpoint | Clave en Redis | TTL | Invalidación |
+|---|---|---|---|
+| `GET /api/productos` | `productos:all` | 5 min | Tras compra en `/api/checkout` |
+| `GET /api/red?email=...` | `red:tree:{email}` | 10 min | Tras compra en `/api/checkout` (`red:tree:*`) |
 
-```bash
-curl -i http://localhost:3000/api/productos | grep X-Cache   # MISS, luego HIT
-docker exec multicatalogo_redis redis-cli KEYS '*'
-docker exec multicatalogo_redis redis-cli TTL productos:all
-docker exec multicatalogo_redis redis-cli FLUSHALL           # invalidar caché
-```
+- Si Redis cae o no responde, la API degrada suavemente y consulta directamente PostgreSQL.
+- El endpoint `/api/health` reportará `"status": "degraded"` en caso de fallo en Redis, manteniendo la API operativa.
 
-## Endpoints
+---
 
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| GET | `/api/health` | Health check |
-| POST | `/api/login` | Login (devuelve email, rol, token) |
-| GET | `/api/productos` | Lista completa de productos |
-| GET | `/api/productos/:id` | Producto por ID |
-| GET | `/api/red` | Red multinivel de referidos (árbol jerárquico) |
-| POST | `/api/checkout` | Registra un pedido (transacción ACID) y calcula comisiones en segundo plano |
+## 🛣️ Endpoints de la API
 
-## Checkout (Fase 4)
+| Método | Endpoint | Autenticación | Descripción |
+|---|---|---|---|
+| `GET` | `/api/health` | Pública | Estado del servidor, ping a PostgreSQL y Redis (`200 OK` / `503 Error`) |
+| `POST` | `/api/login` | Pública | Login con validación bcrypt; retorna token JWT real firmado |
+| `GET` | `/api/productos` | Pública | Catálogo completo (Cache-Aside `productos:all`) |
+| `GET` | `/api/productos/:id` | Pública | Detalle de un producto por su ID |
+| `GET` | `/api/red` | `Bearer <JWT>` | Árbol jerárquico de la red multinivel (Cache-Aside `red:tree:{email}`) |
+| `POST` | `/api/checkout` | `Bearer <JWT>` | Procesamiento de compra transaccional ACID con bloqueo pesimista |
 
-Los controladores son `struct` que reciben sus dependencias (`DBRepository`, `CacheRepository`) desde `main.go` → `routes.SetupRoutes`.
+---
 
-`POST /api/checkout`:
+## 🛒 Checkout Transaccional (U2-T4)
+
+`POST /api/checkout` requiere cabecera `Authorization: Bearer <token>`:
 
 ```json
 {
   "usuario_email": "cliente@upse.edu.ec",
-  "cliente": { "nombre": "Cliente Demo", "email": "cliente@upse.edu.ec", "direccion": "Av. 1", "ciudad": "La Libertad", "telefono": "099" },
+  "cliente": {
+    "nombre": "Diana Paz",
+    "email": "cliente@upse.edu.ec",
+    "direccion": "Av. Principal 123",
+    "ciudad": "Santa Elena",
+    "telefono": "0991234567"
+  },
   "metodo_pago": "Tarjeta de crédito",
-  "items": [{ "producto_id": 1, "cantidad": 2 }]
+  "items": [
+    { "producto_id": 1, "cantidad": 2 }
+  ]
 }
 ```
 
-1. **Transacción:** `BEGIN` → `INSERT pedidos` → `INSERT pedido_items` (precio real de la DB) + `UPDATE productos SET stock = stock - n` → total → `COMMIT`. Cualquier error ejecuta `ROLLBACK` (400 si son datos inválidos, 500 si es un fallo interno). Respuesta `201` con `numero`, `total`, `items`.
-2. **Goroutine `calcularComisiones`:** tras el `COMMIT`, suma la venta al nodo del comprador (`referidos.usuario_id`) y acredita 10 % / 5 % / 2 % a los referidos de nivel 1 / 2 / 3 de su cadena ascendente (tabla `comisiones`, columna `saldo_comision`). El cliente recibe el 201 sin esperar este cálculo.
-3. **Invalidación de caché:** al aplicar las comisiones se borran `red:tree:{email}` y `red:tree:*` (el árbol es compartido), así el Dashboard obtiene los KPIs nuevos.
+### Garantías Transaccionales
+1. **Identidad validada por Token:** El comprador se extrae de los claims verificados del JWT (`c.Locals`), impidiendo la suplantación de cuenta.
+2. **Bloqueo Pesimista (`FOR UPDATE`):** Se bloquea la fila del producto en PostgreSQL durante la transacción para prevenir condiciones de carrera de stock.
+3. **Validación de cantidades:** Cantidades $\le 0$ son rechazadas con error `400` (`ErrCantidadInvalida`).
+4. **Cálculo de Total en Servidor:** El total se calcula sumando el detalle con los precios oficiales de la base de datos.
+5. **Atomicidad:** Si cualquier paso falla, se ejecuta `ROLLBACK` total. Tras el `COMMIT` exitoso, responde `201 Created`.
+6. **Goroutine Asíncrona:** Una Goroutine independiente procesa las comisiones de la red multinivel (10%, 5%, 2%) y elimina las claves de caché en Redis (`productos:all` y `red:tree:*`).
 
-Simulación de fallas para demostrar el `ROLLBACK`:
+---
 
-```bash
-# Falla tras insertar el pedido y antes del detalle (HTTP 500, no queda el pedido)
-CHECKOUT_FALLA_SIMULADA=true docker compose up -d backend
-# Pausa de N segundos antes del COMMIT para detener PostgreSQL a mitad
-CHECKOUT_PAUSA_COMMIT=10 docker compose up -d backend   # luego: docker stop multicatalogo_db
-# Volver al modo normal
-docker compose up -d backend
-```
+## 👥 Cuentas de Prueba
 
-Revisar en PostgreSQL:
+| Rol | Email | Password | Acceso / Capacidades |
+|---|---|---|---|
+| **Admin** | `admin@upse.edu.ec` | `123456` | Acceso a métricas de red, árbol MLM, catálogo y panel administrativo |
+| **Cliente** | `cliente@upse.edu.ec` | `123456` | Compra en tienda, catálogo, carrito y checkout transaccional |
 
-```bash
-docker exec -it multicatalogo_db psql -U multicatalogo_user -d multicatalogo \
-  -c "SELECT count(*) FROM pedidos" -c "SELECT id, stock FROM productos" -c "SELECT * FROM comisiones"
-```
+> Las contraseñas se almacenan mediante hash **bcrypt (`$2a$`)** generado por la migración `003_seguridad.sql`.
 
-> En una base existente, aplicar el esquema nuevo con `./scripts/init-db.sh` (sentencias idempotentes).
+---
 
-## Cuentas de prueba
-
-| Rol | Email | Password |
-|-----|-------|----------|
-| Admin | `admin@upse.edu.ec` | `123456` |
-| Cliente | `cliente@upse.edu.ec` | `123456` |
-
-## Verificación
+## 🧪 Comprobación y Verificación
 
 ```bash
-# Build
+# Análisis estático y compilación
+go vet ./...
 go build ./...
 
-# Prueba de login
-curl -X POST http://localhost:3000/api/login \
+# Probar Health Check
+curl -s http://localhost:3000/api/health
+
+# Probar Login y obtener JWT
+TOKEN=$(curl -s -X POST http://localhost:3000/api/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@upse.edu.ec","password":"123456"}'
+  -d '{"email":"admin@upse.edu.ec","password":"123456"}' | grep -o '"token":"[^"]*' | cut -d'"' -f4)
 
-# Prueba de productos
-curl http://localhost:3000/api/productos
-
-# Prueba de red
-curl http://localhost:3000/api/red
+# Probar endpoint protegido con el token obtenido
+curl -s http://localhost:3000/api/red -H "Authorization: Bearer $TOKEN"
 ```
 
-## Detener servicios
+---
+
+## 🛑 Detener Servicios
 
 ```bash
-# Detener servidor Go (Ctrl+C)
+# Detener contenedores de base de datos y caché
+docker compose down
 
-# Detener PostgreSQL
-docker-compose down
-
-# Detener PostgreSQL y borrar datos (volumen)
-docker-compose down -v
+# Detener contenedores y eliminar volúmenes persistentes
+docker compose down -v
 ```
-
-## Notas
-
-- El password está en texto plano (temporal, para producción usar bcrypt)
-- El token JWT es ficticio (temporal, para producción usar JWT real)
-- Las ventas del usuario raíz están hardcodeadas en `ConstruirArbolRed`
-- El árbol de referidos se construye en memoria desde la lista plana de la DB

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"backend/models"
 )
@@ -34,6 +33,13 @@ type ErrValidacion struct {
 }
 
 func (e *ErrValidacion) Error() string { return e.Mensaje }
+
+// ErrCantidadInvalida indica que la cantidad solicitada para un ítem no es estrictamente positiva.
+type ErrCantidadInvalida struct {
+	ProductoID int
+}
+
+func (e *ErrCantidadInvalida) Error() string { return "cantidad debe ser mayor que cero" }
 
 // SimulacionFallas permite demostrar el ROLLBACK en clase sin editar el código.
 type SimulacionFallas struct {
@@ -88,12 +94,12 @@ func (r *PostgresRepository) BuscarUsuarioPorCredenciales(ctx context.Context, e
 	return &usuario, nil
 }
 
-// BuscarUsuarioPorEmail busca un usuario por su email (sin validar contraseña).
+// BuscarUsuarioPorEmail busca un usuario por su email.
 func (r *PostgresRepository) BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error) {
-	query := `SELECT id, email, rol FROM usuarios WHERE email = $1`
+	query := `SELECT id, email, password, rol FROM usuarios WHERE email = $1`
 	var usuario models.Usuario
 
-	err := r.db.QueryRow(ctx, query, email).Scan(&usuario.ID, &usuario.Email, &usuario.Rol)
+	err := r.db.QueryRow(ctx, query, email).Scan(&usuario.ID, &usuario.Email, &usuario.Password, &usuario.Rol)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -268,36 +274,49 @@ func (r *PostgresRepository) CrearPedido(ctx context.Context, usuarioID int, req
 		return nil, errors.New("falla simulada: caída del sistema antes de procesar los items")
 	}
 
-	// 2. Detalle del pedido: el precio se toma de PostgreSQL y se descuenta el stock simulado.
+	// 2. Detalle del pedido: bloqueo pesimista con FOR UPDATE, validación de stock y descuento.
 	pedido.Items = make([]models.PedidoItem, 0, len(req.Items))
 	for _, item := range req.Items {
-		linea := models.PedidoItem{ProductoID: item.ProductoID, Cantidad: item.Cantidad}
-
-		// La FK pedido_items.producto_id aborta la transacción si el producto no existe.
-		err = tx.QueryRow(ctx,
-			`INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
-			 VALUES ($1, $2, $3, COALESCE((SELECT precio FROM productos WHERE id = $2), 0))
-			 RETURNING precio_unitario, subtotal`,
-			pedido.ID, item.ProductoID, item.Cantidad,
-		).Scan(&linea.PrecioUnitario, &linea.Subtotal)
-		if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-				return nil, &ErrValidacion{Mensaje: fmt.Sprintf("El producto %d no existe", item.ProductoID)}
-			}
-			return nil, fmt.Errorf("error al insertar el detalle del pedido: %w", err)
+		if item.Cantidad <= 0 {
+			return nil, &ErrCantidadInvalida{ProductoID: item.ProductoID}
 		}
 
-		// Descuento atómico del stock: solo si alcanza la cantidad solicitada.
+		linea := models.PedidoItem{ProductoID: item.ProductoID, Cantidad: item.Cantidad}
+
+		// Bloqueo pesimista de fila (FOR UPDATE) para prevenir condiciones de carrera concurrentes.
+		var stockActual int
 		err = tx.QueryRow(ctx,
-			`UPDATE productos SET stock = stock - $1 WHERE id = $2 AND stock >= $1 RETURNING nombre`,
-			item.Cantidad, item.ProductoID,
-		).Scan(&linea.Nombre)
+			`SELECT nombre, precio, stock FROM productos WHERE id = $1 FOR UPDATE`,
+			item.ProductoID,
+		).Scan(&linea.Nombre, &linea.PrecioUnitario, &stockActual)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return nil, &ErrValidacion{Mensaje: fmt.Sprintf("Stock insuficiente para el producto %d", item.ProductoID)}
+				return nil, &ErrValidacion{Mensaje: fmt.Sprintf("El producto %d no existe", item.ProductoID)}
 			}
+			return nil, fmt.Errorf("error al consultar el producto con bloqueo: %w", err)
+		}
+
+		if stockActual < item.Cantidad {
+			return nil, &ErrValidacion{Mensaje: fmt.Sprintf("Stock insuficiente para el producto %d", item.ProductoID)}
+		}
+
+		// Descontar stock del producto bloqueado.
+		_, err = tx.Exec(ctx,
+			`UPDATE productos SET stock = stock - $1 WHERE id = $2`,
+			item.Cantidad, item.ProductoID,
+		)
+		if err != nil {
 			return nil, fmt.Errorf("error al actualizar el stock: %w", err)
+		}
+
+		// Insertar en pedido_items.
+		err = tx.QueryRow(ctx,
+			`INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
+			 VALUES ($1, $2, $3, $4) RETURNING subtotal`,
+			pedido.ID, item.ProductoID, item.Cantidad, linea.PrecioUnitario,
+		).Scan(&linea.Subtotal)
+		if err != nil {
+			return nil, fmt.Errorf("error al insertar el detalle del pedido: %w", err)
 		}
 
 		pedido.Items = append(pedido.Items, linea)

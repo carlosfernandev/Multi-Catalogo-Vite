@@ -38,6 +38,11 @@ func (h *CheckoutController) Checkout(c *fiber.Ctx) error {
 		return c.Status(400).JSON(models.APIError{Status: 400, Message: "Cuerpo de petición inválido"})
 	}
 
+	// Si el usuario está autenticado vía token JWT, la identidad se toma de c.Locals (claims)
+	if tokenEmail, ok := c.Locals("user_email").(string); ok && tokenEmail != "" {
+		req.UsuarioEmail = tokenEmail
+	}
+
 	if msg := validarCheckout(&req); msg != "" {
 		return c.Status(400).JSON(models.APIError{Status: 400, Message: msg})
 	}
@@ -45,19 +50,23 @@ func (h *CheckoutController) Checkout(c *fiber.Ctx) error {
 	// El comprador debe ser una cuenta existente.
 	usuario, err := h.repo.BuscarUsuarioPorEmail(c.Context(), req.UsuarioEmail)
 	if err != nil {
-		return c.Status(500).JSON(models.APIError{Status: 500, Message: "Error al buscar usuario", Details: err.Error()})
+		return c.Status(500).JSON(models.APIError{Status: 500, Message: "Error al buscar usuario", Details: detallesSeguros(err)})
 	}
 	if usuario == nil {
-		return c.Status(400).JSON(models.APIError{Status: 400, Message: "Usuario no registrado", Details: req.UsuarioEmail})
+		return c.Status(400).JSON(models.APIError{Status: 400, Message: "Usuario no registrado"})
 	}
 
 	pedido, err := h.repo.CrearPedido(c.Context(), usuario.ID, req)
 	if err != nil {
+		var errCantidad *repository.ErrCantidadInvalida
+		if errors.As(err, &errCantidad) {
+			return c.Status(400).JSON(models.APIError{Status: 400, Message: errCantidad.Error()})
+		}
 		var errValidacion *repository.ErrValidacion
 		if errors.As(err, &errValidacion) {
 			return c.Status(400).JSON(models.APIError{Status: 400, Message: errValidacion.Mensaje})
 		}
-		return c.Status(500).JSON(models.APIError{Status: 500, Message: "No se pudo procesar el pedido", Details: err.Error()})
+		return c.Status(500).JSON(models.APIError{Status: 500, Message: "No se pudo procesar el pedido", Details: detallesSeguros(err)})
 	}
 
 	// COMMIT exitoso: las comisiones se calculan en segundo plano para no hacer esperar al cliente.
@@ -93,12 +102,11 @@ func (h *CheckoutController) calcularComisiones(pedidoID int, total float64, usu
 	if len(comisiones) == 0 {
 		return
 	}
-	// Paso 5: invalidar la caché del árbol para que el Dashboard muestre los KPIs nuevos.
-	// La red es la misma para todos los usuarios, así que además de red:tree:{email}
-	// se borran las demás copias cacheadas (red:tree:*), incluida la del admin.
+	// Paso 5: invalidar la caché del catálogo y del árbol para que el frontend obtenga datos frescos.
+	h.cache.Eliminar(ctx, "productos:all")
 	h.cache.Eliminar(ctx, "red:tree:"+email)
 	h.cache.EliminarPorPatron(ctx, "red:tree:*")
-	log.Printf("Goroutine: caché red:tree:* invalidada tras el pedido %d", pedidoID)
+	log.Printf("Goroutine: caché productos:all y red:tree:* invalidada tras el pedido %d", pedidoID)
 }
 
 // validarCheckout normaliza el cuerpo y retorna un mensaje de error (vacío si es válido).

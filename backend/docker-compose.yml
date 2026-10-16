@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: multicatalogo_db
+    profiles: ["infra", "all"]
     environment:
       POSTGRES_USER: multicatalogo_user
       POSTGRES_PASSWORD: multicatalogo_pass
@@ -20,6 +21,7 @@ services:
   redis:
     image: redis:alpine
     container_name: multicatalogo_redis
+    profiles: ["infra", "all"]
     ports:
       - "6379:6379"
     healthcheck:
@@ -31,6 +33,7 @@ services:
   backend:
     build: .
     container_name: multicatalogo_api
+    profiles: ["app", "all"]
     environment:
       DB_HOST: postgres
       DB_PORT: 5432

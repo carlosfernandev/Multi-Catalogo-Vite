@@ -1,35 +1,103 @@
 # Multi-Catálogo Vite
 
-Este proyecto está modularizado en dos partes principales: el backend y el frontend, ubicados en sus respectivas carpetas.
+Proyecto didáctico de comercio electrónico y ventas multinivel (MLM) para la asignatura **Framework Programación Web** (UPSE, 2026-02).
+Combina una SPA en React con un núcleo transaccional en Go/Fiber, persistencia en PostgreSQL y caché en Redis.
 
-## Estructura del Proyecto
+---
 
-- `backend/`: Contiene la API y la lógica del servidor, desarrollada en Go.
-- `frontend/`: Contiene la interfaz de usuario, desarrollada con React, TypeScript y Vite.
+## 🏛️ Arquitectura
 
-## Cómo iniciar el proyecto
+```
+React SPA (:5173, proxy /api) ──fetch──► Go/Fiber API (:3000, PORT) ──pgx────► PostgreSQL 16 (:5432, Docker)
+                                               │
+                                               └──go-redis──► Redis (:6379, Docker) — Cache-Aside
+```
 
-Para ejecutar la aplicación completa, necesitarás levantar tanto el servidor del backend como el servidor de desarrollo del frontend en terminales separadas.
+- **Frontend (`frontend/`):** React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7.
+- **Backend (`backend/`):** Go 1.26, Fiber v2, pgx v5, Redis (go-redis v9), JWT (HS256) y bcrypt.
+- **Infraestructura (`backend/docker-compose.yml`):** PostgreSQL 16 y Redis Alpine administrados con perfiles (`infra`).
 
-### 1. Iniciar el Backend (Go)
+---
 
-Abre una terminal, navega a la carpeta `backend` y ejecuta la aplicación de Go:
+## 🚀 Guía de Arranque Rápido
+
+Para ejecutar la solución completa en tu entorno local, sigue estos 3 pasos en orden:
+
+### 1. Levantar la Infraestructura (PostgreSQL + Redis)
+
+La configuración de Docker Compose utiliza el perfil `infra` por defecto para levantar únicamente la base de datos y la caché, dejando libre el puerto 3000 para ejecutar el backend en local:
 
 ```bash
 cd backend
-go run main.go
+docker compose up -d
+# O explícitamente: docker compose --profile infra up -d
 ```
 
-Esto iniciará el servidor del backend, el cual quedará a la escucha de peticiones HTTP.
+> **Verificación:** Puedes confirmar que los contenedores están listos con `docker ps`. Verás `multicatalogo_db` (:5432) y `multicatalogo_redis` (:6379) en estado `healthy`.
 
-### 2. Iniciar el Frontend (React + Vite)
+### 2. Iniciar el Backend (Go / Fiber)
 
-Abre una nueva terminal, navega a la carpeta `frontend`, instala las dependencias y arranca el entorno de desarrollo:
+En una terminal separada, inicia el servidor Go:
+
+```bash
+cd backend
+go run .
+```
+
+- El servidor iniciará en `http://localhost:3000`.
+- Puedes configurar el puerto con la variable de entorno `PORT` si necesitas otro puerto: `PORT=3001 go run .`.
+- Endpoint de verificación: `GET http://localhost:3000/api/health` retorna `{"status":"ok","database":"up","cache":"up"}`.
+
+### 3. Iniciar el Frontend (React + Vite)
+
+En otra terminal separada, instala las dependencias y arranca el servidor de desarrollo:
 
 ```bash
 cd frontend
-npm install      # O puedes usar: pnpm install
-npm run dev      # O puedes usar: pnpm dev
+npm install
+npm run dev
 ```
 
-El servidor de Vite se iniciará y te mostrará una URL local en la terminal (por defecto, suele ser `http://localhost:5173`). Abre esa URL en tu navegador web para interactuar con la aplicación.
+- Vite iniciará en `http://localhost:5173`.
+- Las peticiones `/api/*` se redirigen automáticamente al backend local mediante el proxy configurado en `vite.config.ts`.
+
+---
+
+## 🔐 Cuentas y Credenciales de Prueba
+
+| Rol | Email | Password | Acceso / Funciones |
+|---|---|---|---|
+| **Administrador** | `admin@upse.edu.ec` | `123456` | Acceso a Dashboard (`/`), Red multinivel (`/mi-red`), Catálogo y Carrito |
+| **Cliente** | `cliente@upse.edu.ec` | `123456` | Acceso a Tienda (`/tienda`), Catálogo (`/catalogo`), Carrito y Checkout |
+
+> Las contraseñas están almacenadas con hash **bcrypt** en PostgreSQL y la autenticación emite tokens **JWT reales (HS256)** con expiración de 2 horas.
+
+---
+
+## 🛠️ Comandos de Verificación
+
+```bash
+# Backend (dentro de backend/)
+go vet ./...
+go build ./...
+
+# Frontend (dentro de frontend/)
+npm run lint
+npm run build
+```
+
+---
+
+## 🛑 Detener los Servicios
+
+```bash
+# 1. Detener procesos locales (Backend y Frontend)
+# Presiona Ctrl + C en las respectivas terminales
+
+# 2. Detener contenedores de Docker
+cd backend
+docker compose down
+
+# (Opcional) Detener y eliminar volúmenes de datos persistentes
+docker compose down -v
+```

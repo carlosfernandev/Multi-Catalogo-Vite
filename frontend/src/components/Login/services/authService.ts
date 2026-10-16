@@ -8,9 +8,10 @@ import type { Rol } from "../../../context/AuthContext";
 export interface LoginResponse {
   email: string;
   rol: Rol;
+  token: string;
 }
 
-// Envía las credenciales a POST /api/login y normaliza la respuesta con el rol
+// Envía las credenciales a POST /api/login y normaliza la respuesta con el rol y token JWT
 export const login = (email: string, password: string): Promise<LoginResponse> => {
   return fetch("/api/login", {
     method: "POST",
@@ -22,8 +23,8 @@ export const login = (email: string, password: string): Promise<LoginResponse> =
       return response.json();
     })
     .then((data) => {
-      // La API devuelve el rol (admin | cliente) junto al correo (Tema 5)
+      // La API devuelve el rol (admin | cliente) junto al correo y token JWT
       const rol: Rol = data.rol === "admin" ? "admin" : "cliente";
-      return { email: data.email, rol };
+      return { email: data.email, rol, token: data.token };
     });
 };
