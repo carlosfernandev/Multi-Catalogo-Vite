@@ -1,109 +1,99 @@
-# PROJECT_MAP — Mapa Arquitectónico del Proyecto
+# PROJECT MAP — Multi-Catalogo-Vite
 
-## Estructura General
+> Mapa arquitectónico del workspace. Leer ESTE archivo antes de explorar código.
+> Proyecto didáctico "MultiCatálogo": tienda de cosméticos con red de ventas
+> multinivel (MLM). Asignatura: Framework Programación Web (UPSE, 2026-02).
 
-- `backend/` — API Go/Fiber (módulo Go: `backend`). Puerto 3000.
-- `frontend/` — React 19 + Vite + Tailwind CSS 4 + React Router v7 + TypeScript. Puerto 5173.
-- `specs/` — Specs atómicas de la Práctica 03 (14 pasos atomizados).
-- `practica03.md` — Guía de laboratorio completa (fuente de verdad del código).
+## Visión general
 
-## Backend (Go/Fiber)
-
-**Raíz del módulo:** `backend/main.go` — Entrada, configuración Fiber, CORS, setup de rutas.
-
-**Controladores** (`backend/controllers/`):
-- `authController.go` — `POST /api/login` (login con rol: admin/cliente).
-- `prodController.go` — `GET /api/productos` (lista), `GET /api/productos/:id` (detalle por ID).
-- `healthController.go` — `GET /api/health` (health check).
-- `redController.go` — `GET /api/red` (árbol multinivel, caché `red:tree:{email}` TTL 10 min).
-- `prodController.go` usa caché Redis `productos:all` (TTL 5 min) en `GET /api/productos`.
-- `checkoutController.go` — `POST /api/checkout` (validación, transacción ACID, Goroutine `calcularComisiones`, invalidación `red:tree:*`).
-- Todos los controladores son `struct` con dependencias inyectadas (`repository.DBRepository`, `cache.CacheRepository`).
-
-**Repositorio** (`backend/repository/repository.go`):
-- `DBRepository` (interfaz) + `PostgresRepository` (pgx). `CrearPedido` (transacción del checkout), `AplicarComisiones` (red multinivel).
-- `SimulacionDesdeEntorno` — `CHECKOUT_FALLA_SIMULADA`, `CHECKOUT_PAUSA_COMMIT` para demostrar el `ROLLBACK`.
-
-**Caché** (`backend/cache/`, `backend/config/redis.go`):
-- `config/redis.go` — Cliente Redis (`REDIS_URL` o `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`).
-- `cache/cache.go` — `CacheRepository` / `RedisCache`: `Obtener` / `Guardar` (Cache-Aside JSON + TTL; cabecera `X-Cache: HIT|MISS`), `Eliminar` / `EliminarPorPatron` (invalidación).
-
-**Modelos** (`backend/models/`):
-- `models.go` — `LoginRequest`, `Producto`, `Referido`, `APIError`, `CheckoutRequest`, `Pedido`, `PedidoItem`, `Comision`.
-
-**Rutas** (`backend/routes/`):
-- `routes.go` — `SetupRoutes(app, repo, cache)` instancia los controladores y registra `/api/health`, `/api/login`, `/api/productos`, `/api/productos/:id`, `/api/red`, `POST /api/checkout`.
-
-**Configuración:**
-- `go.mod`, `go.sum` — Dependencias Go.
-- `docker-compose.yml` + `Dockerfile` — servicios `postgres`, `redis` y `backend` (depende de ambos).
-- `go build ./...` — Comando de verificación (no hay tests).
-
-## Frontend (React 19 + Vite)
-
-**Entrada:** `frontend/src/main.tsx` — Montaje de `App.tsx`.
-
-**Rutas y Layout** (`frontend/src/`):
-- `App.tsx` — Rutas React Router v7, guardas (`ProtectedRoute`, `AdminRoute`), layout principal.
-- `main.tsx` — Punto de entrada.
-
-**Contextos Globales** (`frontend/src/context/`):
-- `AuthContext.tsx` — Estado de autenticación (`isAuthenticated`, `user: {email, rol}`), `login()`, `logout()`.
-- `CartContext.tsx` — Carrito persistente por usuario (`addToCart`, `removeFromCart`, `totalItems`, `totalPrice`).
-
-**Componentes** (`frontend/src/components/`):
-- `Login/` — Login con servicio `authService.ts`, redirección por rol.
-- `Layout.tsx` — Layout principal con Navbar + Sidebar.
-- `Navbar.tsx` — Navegación superior, carrito, avatar, logout.
-- `Sidebar.tsx` — Navegación lateral colapsable, filtros por rol.
-- `Dashboard.tsx` — Dashboard admin con KPIs dinámicos.
-- `MiRed/` — Red multinivel de referidos (`data/red.ts` con funciones puras).
-- `Carrito.tsx` — Lista de ítems, total, checkout.
-- `Catalogo/` — Catálogo con filtros, detalle, lightbox, servicios, datos mock.
-- `Storefront.tsx` — Storefront full-screen con hero + secciones.
-- `Checkout.tsx`, `Confirmacion.tsx` — Flujo de compra.
-
-**Catalogo Feature** (`frontend/src/components/Catalogo/`):
-- `Catalogo.tsx` — Grilla de productos con filtros por categoría/búsqueda.
-- `interfaces/iproducto.ts` — `IProducto` (id, nombre, descripcion, precio, categoria, img, galeria).
-- `data/productos.ts` — Datos mock de 8 productos con categorías.
-- `services/productosService.ts` — `getProductos()`, `getProductoById(id)` (simulan API).
-
-**MiRed Feature** (`frontend/src/components/MiRed/`):
-- `MiRed.tsx` — Visualización de árbol de referidos.
-- `data/red.ts` — Estructura `Referido` (id, nombre, nivel, ventas, hijos), funciones puras de cálculo.
-
-**Configuración:**
-- `package.json` — Dependencias: React 19, Vite, Tailwind 4, React Router v7.
-- `tsconfig.json`, `vite.config.ts` — Configuración TypeScript y Vite.
-- `npm run dev` — Servidor desarrollo; `npm run build` — `tsc -b && vite build`; `npm run lint` — ESLint.
-
-## Specs y Documentación
-
-**Specs atómicas** (`specs/`):
-- `paso-01-rol-api/` a `paso-14-navegacion-rol/` — Cada paso tiene `spec.md` (qué) y `tasks.md` (cómo).
-- `README.md` — Índice de los 14 pasos con correspondencia a entregables F1-F8.
-
-**Documentos de referencia:**
-- `practica03.md` — Guía de laboratorio (código completo, pasos 1-14).
-- `AGENTS.md` — Convenciones del proyecto (código en español, estructura, comandos).
-- `README.md` — Descripción general del proyecto.
-
-## Patrones de Organización
-
-- **Backend:** Capas clásicas (models → controllers → routes). Hardcodeado sin persistencia aún.
-- **Frontend:** Organización por features (`Catalogo/`, `MiRed/`, `Login/`) con subcarpetas `interfaces/`, `data/`, `services/`.
-- **Contextos:** Estado global en `context/` (Auth, Cart).
-- **Rutas:** Guardas por rol en `App.tsx` (`ProtectedRoute`, `AdminRoute`).
-
-## Comandos de Verificación
-
-**Backend:**
-```bash
-cd backend && go build ./...
+```
+React SPA (:5173, proxy /api) ──fetch──► Go/Fiber API (:3000) ──pgx────► PostgreSQL 16 (:5432, Docker)
+                                              │
+                                              └──go-redis──► Redis (:6379, Docker) — caché de lecturas
 ```
 
-**Frontend:**
-```bash
-cd frontend && npm run lint && npm run build
-```
+## Documentos raíz (meta, no código)
+
+| Archivo | Contenido |
+|---|---|
+| `PROJECT_MAP.md` | Este archivo. Índice de navegación del proyecto. |
+| `REQUIREMENTS_CHECKLIST.md` | Estado del proyecto en **fases por Unidad/Tema del sílabo** (U1 SPA → U2 Go/Fiber → U3 FastAPI SaaS → U4 despliegue). Principios: seguridad por defecto, DI, funciones puras de dominio, mobile-first. |
+| `AGENTS.md` | Guía para agentes: estructura `backend/` + `frontend/` y comandos de verificación. |
+| `README.md` | Descripción general del proyecto. |
+| `practica03.md` | Guía de la Práctica 03 (interfaces full-screen + flujos MLM). |
+| `specs/` | Specs y tareas por paso (`paso-01-rol-api` … `paso-14-navegacion-rol`). |
+| `odd/tasks/` | Notas de tareas (`conectar-controladores-backend.md`). |
+| `.windsurf/rules/` | Reglas del agente IA (`globales.md`, `contexto.md`, `ahorro-tokens.md`). |
+
+## frontend/ — SPA
+
+Stack: React 19 + TypeScript + Vite + Tailwind CSS 4 + React Router 7.
+Comandos (en `frontend/`): `npm run dev` (:5173, proxy `/api` → `:3000` en `vite.config.ts`) | `npm run build` | `npm run lint`.
+
+| Ruta (`frontend/src/`) | Responsabilidad |
+|---|---|
+| `App.tsx` | Router, guardas `ProtectedRoute`/`AdminRoute`, `CartBoundary` (carrito por usuario). |
+| `main.tsx` | Bootstrap de React. |
+| `index.css` | Tailwind v4 (import único). |
+| `context/AuthContext.tsx` | Sesión: `{email, rol}` admin\|cliente. Sin persistencia (F5 cierra sesión). |
+| `context/CartContext.tsx` | Carrito por usuario persistido en localStorage (`multicatalogo_carrito_<email>`). |
+| `components/Catalogo/interfaces/iproducto.ts` | Tipo `IProducto`. |
+| `components/Catalogo/data/productos.ts` | Datos mock + lista `categorias`. |
+| `components/Catalogo/services/productosService.ts` | `getProductos()`, `getProductoById()` → `GET /api/productos[/:id]`. |
+| `components/MiRed/data/red.ts` | Tipos `Referido` + funciones puras: comisiones (10/5/2 %), totales, nivel. |
+| `components/MiRed/services/redService.ts` | `getRed(email?)` → `GET /api/red[?email=]`. |
+| `components/Login/Login.tsx` | Login; redirige por rol (admin → `/`, cliente → `/tienda`). |
+| `components/Login/services/authService.ts` | `login(email, password)` → `POST /api/login`. |
+| `services/checkoutService.ts` | `crearPedido()` → `POST /api/checkout`; lanza `APIError.message`. |
+| `services/healthService.ts` | `checkHealth()` → `GET /api/health`. |
+| `components/Storefront.tsx` | `/tienda` — hero full-screen, categorías, destacados, plan MLM. |
+| `components/Catalogo/Catalogo.tsx` | `/catalogo` — búsqueda + filtro por `?categoria=` (useMemo, useSearchParams). |
+| `components/DetalleProducto.tsx` | `/producto/:id` — detalle + galería/lightbox. |
+| `components/Carrito.tsx` | `/carrito` — ítems, cantidades, total. |
+| `components/Checkout.tsx` | `/checkout` — formulario → `POST /api/checkout` real; muestra `APIError` sin avanzar. |
+| `components/Confirmacion.tsx` | `/confirmacion` — pedido confirmado con datos del backend. |
+| `components/MiRed.tsx` | `/mi-red` (admin) — árbol multinivel + comisiones. |
+| `components/Dashboard.tsx` | `/` (admin) — KPIs derivados de la red. |
+| `components/Layout.tsx` `Navbar.tsx` `Sidebar.tsx` | Shell: sidebar colapsable, navbar con carrito/avatar/logout. |
+
+## backend/ — API REST
+
+Stack: Go 1.26 + Fiber v2 + pgx v5 (pool) + godotenv + PostgreSQL 16 + Redis (go-redis v9).
+Comandos (en `backend/`): `docker compose up -d --build` | `go run .` (:3000) | `go vet ./...` | `go build ./...`.
+Capas: `routes` → `controllers` → `repository` / `cache` (dependencias inyectadas desde `main.go`).
+
+| Ruta (`backend/`) | Responsabilidad |
+|---|---|
+| `main.go` | Entry point: `config.InitDB()` + `config.InitRedis()`, ensambla DI (`repository.NewPostgresRepository` + `cache.NewRedisCache` → `routes.SetupRoutes`), CORS (`127.0.0.1:5173`), `app.Listen(":3000")`. |
+| `config/db.go` | Pool pgx; carga `.env`; `InitDB() (*pgxpool.Pool, error)`. |
+| `config/redis.go` | `InitRedis() (*redis.Client, error)` (`REDIS_URL` o `REDIS_HOST`/`REDIS_PORT`); si Redis cae, la API sigue sin caché. |
+| `cache/cache.go` | Interfaz `CacheRepository` + `RedisCache` (`Obtener`/`Guardar`/`Eliminar`/`EliminarPorPatron`, nil-safe). |
+| `models/models.go` | `LoginRequest`, `Usuario`, `Producto`, `Referido`, `CheckoutRequest`/`CheckoutItem`, `Pedido`/`PedidoItem`, `Comision`, `APIError{status,message,details}`. |
+| `routes/routes.go` | `SetupRoutes(app, repo, cache)` — instancia los controladores y registra los endpoints. |
+| `controllers/authController.go` | `AuthController{repo}` → `POST /api/login` — valida body + campos vacíos (400), 401 con APIError. |
+| `controllers/checkoutController.go` | `CheckoutController{repo,cache}` → `POST /api/checkout`: validación, transacción ACID, Goroutine `calcularComisiones`, invalidación `red:tree:*`. |
+| `controllers/prodController.go` | `ProductoController` → `GET /api/productos` (Cache-Aside `productos:all`, TTL 5 min), `GET /api/productos/:id` (400 si id no numérico, 404). |
+| `controllers/redController.go` | `RedController` → `GET /api/red[?email=]` — árbol multinivel; Cache-Aside `red:tree:{email}`, TTL 10 min. |
+| `controllers/healthController.go` | `GET /api/health` — `{"status":"ok"}`. |
+| `repository/repository.go` | Interfaz `DBRepository` + `PostgresRepository{db}`: SQL puro; árbol `referidos` por `parent_id` (`ConstruirArbolRed`); `CrearPedido` transaccional; `AplicarComisiones` (cadena ascendente 3 niveles); `SimulacionDesdeEntorno` (fallas para demostrar ROLLBACK). |
+| `database/init.sql` | DDL + seed idempotente: `usuarios`, `productos` (`galeria TEXT[]`, `stock`), `referidos` (`parent_id`, `usuario_id`, `saldo_comision`), `pedidos`, `pedido_items`, `comisiones`. |
+| `scripts/init-db.sh` | Aplica `init.sql` sobre el contenedor existente (`docker exec -i multicatalogo_db psql`). |
+| `docker-compose.yml` + `Dockerfile` | `postgres:16` (:5432, volumen, autoejecuta `init.sql`), `redis:alpine` (:6379) y `backend` (:3000), con healthchecks. |
+| `.env` (gitignored) | `DB_HOST/PORT/USER/PASSWORD/NAME` + `REDIS_HOST/PORT`. |
+| `README.md` | Arranque, variables, caché, checkout y simulación de fallas. |
+
+## Datos y contratos clave
+
+- Errores API: siempre `{"status":N,"message":"...","details"?}` (struct `APIError`).
+- Login OK: `{"token","email","rol"}`. Cuentas: `admin@upse.edu.ec`/`cliente@upse.edu.ec` — `123456`.
+- Checkout: `POST /api/checkout` `{usuario_email, cliente:{nombre,email,direccion,ciudad,telefono}, metodo_pago, items:[{producto_id,cantidad}]}` → `201 {"pedido_id","numero","total","estado","fecha","items"}`; el total se calcula en servidor con precios de la DB y el stock se descuenta en la misma transacción.
+- Árbol de referidos: raíz id 0 "Tú", 7 nodos, comisiones por nivel (front: `frontend/src/components/MiRed/data/red.ts`).
+- Comisión esperada de la red semilla: **$319.50** total, 7 referidos.
+
+## Notas operativas
+
+- Puertos: PostgreSQL **5432**, Redis **6379**, API **3000**, Vite **5173** (`backend/docker-compose.yml`, `frontend/vite.config.ts`).
+- Caché Cache-Aside: `productos:all` (TTL 5 min) y `red:tree:{email}` (TTL 10 min); si Redis no responde, la API consulta PostgreSQL directamente. Tras una compra, la Goroutine invalida `red:tree:{email}` y `red:tree:*`.
+- Comisiones MLM: Goroutine tras COMMIT suma `total` a `ventas` del nodo del comprador (`referidos.usuario_id`) y acredita 10/5/2 % a su cadena ascendente (máx. 3 niveles por `parent_id`). Con el seed actual, `cliente` → Diana Paz (nivel 3) acredita a Diana, Carlos Ruiz y Ana García.
+- Simulación de fallas del checkout: `CHECKOUT_FALLA_SIMULADA=true`, `CHECKOUT_PAUSA_COMMIT=<seg>` (ver `backend/README.md`).
+- Passwords en texto plano (temporal didáctico); token JWT ficticio; endpoints sin auth real.

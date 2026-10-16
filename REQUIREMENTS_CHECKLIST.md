@@ -1,208 +1,125 @@
-# REQUIREMENTS_CHECKLIST — Checklist de Requerimientos
+# REQUIREMENTS CHECKLIST — MultiCatálogo
+
+> Fuente de verdad del progreso. Leer al inicio de cada sesión; marcar `- [x]`
+> y actualizar "Estado General" al completar cualquier tarea.
+>
+> **Estructura:** el documento se divide en fases por **Unidad/Tema del sílabo**
+> (`Silabo_Framework_Programacion_Web.md`). Cada fase trae un comentario con lo
+> que se hará en esa clase. El producto integrador es UNO: MultiCatálogo —
+> una tienda cosmética con red de ventas multinivel (MLM) que crece como
+> **sistema políglota**: React (front) + Go/Fiber (núcleo transaccional, U2)
+> + FastAPI (capa SaaS/multitenant, U3), desplegado contenerizado (U4).
+>
+> **Principios rectores (aplican a toda fase):**
+> - Seguridad por defecto: ningún endpoint nuevo nace sin auth ni validación.
+> - Inyección de dependencias: interfaces en los bordes; globals solo en el entry point.
+> - Funciones puras para el dominio (comisiones, totales, validadores) — testeables sin I/O.
+> - Mobile-first: UI a 360px, touch ≥44px, un campo por fila en formularios.
 
 ## Estado General
 
-**Hito actual:** Práctica 03 — Unidad 1, Tema 5 (Implementación de interfaces interactivas a pantalla completa y flujos para catálogos de venta multinivel)
+| Ítem | Valor |
+|---|---|
+| **Hito actual** | Unidad 2 — Fase 4 (checkout transaccional, Goroutine de comisiones, invalidación de caché) |
+| **Última tarea completada** | Fase 4: DI con structs/interfaces + `POST /api/checkout` ACID + Goroutine de comisiones + invalidación `red:tree:*` + `Checkout.tsx` real (2026-10-16) |
+| **Siguiente tarea pendiente** | Seguridad U2-T4 (bcrypt + JWT + `RequireAuth` + identidad por token); luego U3-T1: scaffold FastAPI `Unidad3_SaaS/` |
+| **Bloqueadores** | Ninguno. Servicios en `backend/docker-compose.yml`: PostgreSQL **5432**, Redis **6379**, API **3000** |
 
-**Última tarea completada:** Fase 4 — Checkout transaccional (DI, `POST /api/checkout` ACID, Goroutine de comisiones, invalidación de caché)
+## Arquitectura objetivo del semestre
 
-**Siguiente tarea pendiente:** Paso 5 — Autenticación con rol (extender `AuthContext` con `email + rol` y crear `authService.ts`)
-
----
-
-## Hito: Backend — Base de Autenticación
-
-### Paso 01 — Rol en la API
-- [x] `POST /api/login` con `admin@upse.edu.ec / 123456` retorna `rol: "admin"`, `email` y `token`
-- [x] `POST /api/login` con `cliente@upse.edu.ec / 123456` retorna `rol: "cliente"`, `email` y `token`
-- [x] Credenciales inválidas retornan HTTP 401 con estructura `APIError`
-- [x] Validación de campos vacíos (`Email` y `Password`) con HTTP 400
-- [x] `go build ./...` compila sin errores
-
-### Salud del API
-- [x] `GET /api/health` devuelve `{"status": "ok", "message": "Servidor Go/Fiber operativo"}`
-
-### Productos API
-- [x] `GET /api/productos` devuelve lista de productos (4 hardcodeados)
-- [x] `GET /api/productos/:id` devuelve producto por ID con validación de numérico
-- [x] Estructura `APIError` estandarizada en `models/models.go`
-
-### Fase 3 — Caché con Redis (Cache-Aside)
-- [x] Servicio `redis` (`redis:alpine`, puerto 6379) en `docker-compose.yml`; `backend` depende de `postgres` y `redis`
-- [x] `config/redis.go` con `redis.NewClient` leyendo `REDIS_URL` / `REDIS_HOST` / `REDIS_PORT`
-- [x] `GET /api/productos` cachea `productos:all` con TTL de 5 minutos
-- [x] `GET /api/red` cachea `red:tree:{email}` (query `?email=`) con TTL de 10 minutos
-- [x] Cache Hit responde sin consultar PostgreSQL; si Redis cae, la API sigue respondiendo desde PostgreSQL
-
-### Fase 4 — Checkout transaccional, concurrencia e inyección de dependencias
-- [x] Paso 1: controladores como `struct` con `DBRepository` y `CacheRepository` inyectados desde `main.go` / `routes.go` (sin variables globales `DB`/`RDB`)
-- [x] Paso 2: `POST /api/checkout` recibe `usuario_email`, `cliente`, `metodo_pago` e `items` (`producto_id`, `cantidad`)
-- [x] Paso 3: `CrearPedido` en transacción (`BEGIN` → `pedidos` → `pedido_items` + descuento de `productos.stock` → `COMMIT`); precio tomado de la DB
-- [x] Paso 3: `ROLLBACK` ante producto inexistente (400), stock insuficiente (400), falla simulada (500) y PostgreSQL caído antes del `COMMIT` (500): sin pedido fantasma ni descuento de stock
-- [x] Paso 4: Goroutine `calcularComisiones` tras el `COMMIT`: suma la venta al nodo del comprador y acredita 10/5/2 % a la cadena ascendente (tabla `comisiones`, `referidos.saldo_comision`)
-- [x] Paso 5: la Goroutine invalida `red:tree:{email}` y `red:tree:*`; el siguiente `GET /api/red` es `MISS` con KPIs actualizados
-- [x] Frontend: `Checkout.tsx` usa `services/checkoutService.ts`; error → alerta sin avanzar; éxito → `Confirmacion.tsx` con datos del backend
-- [x] Dashboard y Mi Red envían `?email=` a `/api/red`
-- [x] Corrección: `ConstruirArbolRed` incluye el nivel 3 de la red
+```
+React SPA (:5173) ──► Caddy/Nginx (U4: proxy inverso + SSL)
+                        ├─ /api/tx/*   → Go/Fiber  :3000  — núcleo transaccional (U2)
+                        └─ /api/saas/* → FastAPI   :8000  — capa SaaS/multitenant (U3)
+                                            │
+                          PostgreSQL 16 (:5432) + Redis (:6379)
+```
 
 ---
 
-## Hito: Frontend — Datos y Servicios
+# UNIDAD 1 — FRAMEWORKS FRONTEND (SPA React + Vite + Tailwind)
 
-### Paso 02 — Datos de ejemplo del catálogo
-- [x] `IProducto` contiene 7 campos: `id`, `nombre`, `descripcion`, `precio`, `categoria`, `img`, `galeria`
-- [x] `productosMock` tiene 8 productos con galería de 3 imágenes cada uno
-- [x] `categorias` exportada con 5 valores: Serum, Crema, Tónico, Mascarilla, Kit
-- [x] `npm run build` y `npm run lint` sin errores de tipos
+## U1-T1 · Introducción a frameworks web y arquitectura de soluciones
 
-### Paso 03 — Datos de la red multinivel
-- [ ] Interfaz `Referido` con `id`, `nombre`, `nivel`, `ventas`, `hijos?`
-- [ ] `redInicial` con estructura jerárquica de 3 niveles (7 referidos)
-- [ ] Función `contarRed(raiz)` cuenta referidos totales
-- [ ] Función `sumarVentasRed(raiz)` suma ventas de toda la red
-- [ ] Función `comisionDeReferido(ref)` calcula comisión por nodo
-- [ ] Función `sumarComisiones(raiz)` suma comisiones totales
-- [ ] Función `nivelAlcanzado(directos)` devuelve Bronce/Plata/Oro/Diamante
-- [ ] `TASA_COMISION` por nivel (10%, 5%, 2%)
+> Se presenta la pila tecnológica del semestre, la inversión de control y los
+> lineamientos del producto integrador MultiCatálogo (tienda + red MLM).
 
-### Paso 04 — Servicio de productos
-- [ ] `getProductos(): Promise<IProducto[]>` simula GET /api/productos
-- [ ] `getProductoById(id): Promise<IProducto | undefined>` simula GET /api/productos/:id
-- [ ] Timeout simulado de 400ms y 300ms respectivamente
-- [ ] Import desde `productosMock` y tipado correcto
+- [ ] Pila definida y workspace estructurado (`frontend/`, `backend/`)
 
----
+## U1-T2 · Entorno SPA con Vite + Tailwind CSS
 
-## Hito: Frontend — Autenticación y Rutas
+> Scaffold del frontend: empaquetador Vite, Tailwind v4, estructura de carpetas
+> por responsabilidad (`components/`, `context/`, `services/`, `data/`).
 
-### Paso 05 — Autenticación con rol
-- [ ] `AuthContext` expone `Rol = 'admin' | 'cliente'`
-- [ ] `Usuario` interface con `email` y `rol`
-- [ ] `login(usuario: Usuario)` guarda email y rol en estado global
-- [ ] `authService.ts` con `login(email, password): Promise<LoginResponse>`
-- [ ] Normalización de rol: `data.rol === "admin" ? "admin" : "cliente"`
-- [ ] `Login.tsx` redirige: admin → `/`, cliente → `/tienda`
-- [ ] `npm run build` sin errores de tipos
+- [ ] Entorno SPA con Vite + Tailwind CSS
+- [ ] `frontend/package.json` renombrado a `multicatalogo-frontend`
+- [ ] `VITE_API_URL` en `frontend/.env` + `import.meta.env` (cliente único en `frontend/src/services/http.ts`)
 
-### Paso 06 — Rutas y guardas por rol
-- [ ] `ProtectedRoute` redirige a `/login` si no autenticado
-- [ ] `AdminRoute` redirige a `/tienda` si rol != admin
-- [ ] `CartBoundary` con `key={user?.email ?? "anonimo"}`
-- [ ] Rutas públicas: `/login`
-- [ ] Rutas admin-only: `/`, `/mi-red`
-- [ ] Rutas ambos roles: `/tienda`, `/catalogo`, `/producto/:id`, `/carrito`, `/checkout`, `/confirmacion`
-- [ ] `npm run build` sin errores
+## U1-T3 · Componentes y gestión de estado global
+
+> Estado global con React Context: sesión de usuario y carrito por usuario.
+
+- [ ] `AuthContext` (sesión `{email, rol}`) y `CartContext` (carrito en localStorage por email) — `frontend/src/context/`
+- [ ] Persistencia de sesión en `frontend/src/context/AuthContext.tsx` (`multicatalogo_sesion`: usuario + JWT en localStorage)
+- [ ] Warnings eslint resueltos: split `frontend/src/context/auth.ts` + `frontend/src/context/cart.ts` (hooks/tipos separados del Provider); `npm run lint` → 0 errores, 0 warnings
+
+## U1-T4 · Consumo de API RESTful y enrutamiento
+
+> Promesas con fetch, capa de servicios desacoplada y guardas de ruta por rol.
+
+- [ ] `frontend/src/components/Catalogo/services/productosService.ts`, `frontend/src/components/MiRed/services/redService.ts` + guardas `ProtectedRoute`/`AdminRoute` (`frontend/src/App.tsx`)
+- [ ] `frontend/src/services/http.ts`: `apiFetch` único con `Authorization: Bearer` automático, `ApiError` tipado con status y helpers de sesión
+
+## U1-T5 · Interfaces full-screen y flujos MLM (Práctica 03)
+
+> Vistas inmersivas del catálogo y flujo completo de compra y red multinivel.
+
+- [ ] F8 Login con rol + redirección por rol
+- [ ] F1 Storefront `/tienda` full-screen | F3 Catálogo con búsqueda/filtros | F2 Detalle `/producto/:id` | F4 Lightbox
+- [ ] F5 Carrito + checkout + confirmación | F6 Árbol multinivel comisiones 10/5/2 % | F7 Dashboard KPIs
+- [ ] `frontend/src/components/Checkout.tsx` → `POST /api/checkout` real (sin simulación) + manejo de `APIError`
+- [ ] Audit mobile-first: 375px sin overflow en Dashboard/MiRed/Catálogo; botones de acción ≥44px (`Añadir al Carrito`, steppers de `Carrito`, `Cerrar Sesión`)
 
 ---
 
-## Hito: Frontend — Storefront y Catálogo
+# UNIDAD 2 — BACKEND ALTA TRANSACCIONALIDAD (Go/Fiber · "entornos bancarios")
 
-### Paso 07 — Storefront a pantalla completa
-- [ ] `Storefront.tsx` creado con hero `min-h-screen`
-- [ ] Hero con gradiente y círculos `blur-3xl`
-- [ ] Sección categorías con 5 cards enlazadas a `?categoria=`
-- [ ] Destacados con 4 productos desde `getProductos().slice(0,4)`
-- [ ] Condicional `user?.rol === "admin"` para CTA "Conocer el Plan Multinivel"
-- [ ] Estado `loading` durante carga de productos
-- [ ] CTA final a `/catalogo`
+## U2-T1 · Rendimiento, memoria y concurrencia
 
-### Paso 08 — Catálogo con búsqueda y filtros
-- [ ] `useSearchParams` para leer/escribir `?categoria`
-- [ ] Estado `busqueda` y `categoria`
-- [ ] `useMemo` filtra por categoría (case-insensitive) y texto en nombre/descripción
-- [ ] Dependencias: `[productos, busqueda, categoria]`
-- [ ] Selector de categoría sincroniza URL
-- [ ] Estado vacío con mensaje y botón "Limpiar filtros"
-- [ ] Cards con `Link to=/producto/:id` y botón `addToCart`
+> Goroutines y contextos: procesos de misión crítica que no bloquean la respuesta HTTP.
 
-### Paso 09 — Detalle y lightbox
-- [ ] Ruta dinámica `/producto/:id` con `useParams`
-- [ ] `DetalleProducto.tsx` carga producto con `getProductoById(id)`
-- [ ] Galería de imágenes con miniaturas
-- [ ] Lightbox overlay al hacer clic en imagen principal
-- [ ] Botón cerrar lightbox (X o ESC)
-- [ ] Accesibilidad: focus trap, ARIA labels
-- [ ] Botón "Añadir al Carrito" en detalle
+- [ ] Goroutine `procesarComisiones` tras el COMMIT del pedido (contexto propio, no el del request) — `backend/controllers/checkoutController.go`
 
----
+## U2-T2 · Microservicios y APIs robustas (Fiber)
 
-## Hito: Frontend — Carrito Persistente
+> API REST en capas con contrato de error estándar y configuración por entorno.
 
-### Paso 10 — Carrito persistente por usuario
-- [ ] `CartItem extends IProducto { cantidad }`
-- [ ] `CART_STORAGE_PREFIX = "multicatalogo_carrito_"`
-- [ ] `storageKey` por `user?.email`
-- [ ] `useState` lazy init desde `localStorage`
-- [ ] `useEffect` persiste en cada cambio
-- [ ] `addToCart` incrementa cantidad si existe
-- [ ] `decrementQuantity` elimina si cantidad llega a 0
-- [ ] `incrementQuantity` suma 1
-- [ ] `clearCart` vacía el carrito
-- [ ] `Carrito.tsx` con controles `− / +`, subtotales y link a `/checkout`
-- [ ] Recargar página conserva carrito
-- [ ] Cambiar de usuario muestra carrito propio (no mezclado)
+- [ ] Capas `backend/routes` → `backend/controllers` → `backend/repository`; endpoints login/productos/red/health
+- [ ] `APIError{status,message,details}` (`backend/models/models.go`) en todos los errores + validación de entrada (400/404)
+- [ ] Puerto de escucha configurable (`PORT`, defecto 3000) en `backend/main.go`
+- [ ] `/api/health` real: `HealthController` (`backend/controllers/healthController.go`) con ping a Postgres (503 si cae) y Redis (`"degraded"` si cae)
+
+## U2-T3 · Persistencia PostgreSQL + caché Redis
+
+> Dockeriza la BD, SQL puro con pgx, reconstrucción del árbol y Cache-Aside.
+
+- [ ] `backend/docker-compose.yml` Postgres 16 + Redis alpine + volumen + healthchecks
+- [ ] `backend/database/init.sql` (usuarios/productos/referidos + seed), `backend/repository/repository.go` a SQL real, árbol por `parent_id`
+- [ ] Cache-Aside (`backend/cache/cache.go`): `productos:all` TTL 5 min, `red:tree:{email}` TTL 10 min, degradación sin caché
+- [ ] Índices: `referidos(parent_id)`, `pedidos(cliente_email)`, `pedido_items(pedido_id)`, `productos(categoria)` (migración `backend/database/003_seguridad.sql` + `init.sql`)
+- [ ] Errores propagados: firmas del repo devuelven `error`; `ErrNoEncontrado`→404/401, resto→500 (nunca lista vacía silenciosa)
+
+## U2-T4 · Inyección de dependencias y microservicio seguro
+
+> DI por interfaces en toda la cadena + transacción ACID del checkout + hardening.
+
+- [ ] Interfaces `DBRepository`/`CacheRepository`; `PostgresRepository`/`RedisCache`; structs de controladores; `NewControllers` en `backend/main.go`
+- [ ] `POST /api/checkout` ACID: `FOR UPDATE` + descuento de stock + `pedidos`/`pedido_items`, ROLLBACK → 400/500, total recalculado en servidor
+- [ ] Invalidación de caché tras compra (`productos:all`, `red:tree:*`) + migración `backend/database/002_checkout.sql`
+- [ ] bcrypt de passwords (pgcrypto `crypt()/gen_salt('bf')` en migración `backend/database/003_seguridad.sql` + seed; login con `CompareHashAndPassword`)
+- [ ] JWT real (`JWT_SECRET` en env, claims `{sub,email,rol,iat,exp}` 2h, HS256) + `middleware.RequireAuth(secret)`/`RequireAdmin()` en `backend/middleware/`
+- [ ] Protegidos `/api/red` y `/api/checkout` con el middleware (401 sin token / token adulterado)
+- [ ] Checkout toma la identidad del TOKEN (`c.Locals` desde claims) — verificado: `email` falso en body NO se persiste ni atribuye comisiones
+- [ ] Errores sanitizados: `Details` solo con `APP_ENV=dev`; `ErrCantidadInvalida` propio (400 "cantidad debe ser mayor que cero", distinto de stock)
 
 ---
-
-## Hito: Frontend — Checkout y Confirmación
-
-### Paso 11 — Checkout y confirmación
-- [ ] `Checkout.tsx` con formulario de datos de envío
-- [ ] Validación de campos obligatorios
-- [ ] Resumen del pedido (ítems, total)
-- [ ] Botón "Confirmar Pedido" llama `clearCart()`
-- [ ] Navegación a `/confirmacion`
-- [ ] `Confirmacion.tsx` con mensaje de éxito
-- [ ] Botón "Volver al Catálogo" redirige a `/catalogo`
-
----
-
-## Hito: Frontend — Red Multinivel
-
-### Paso 12 — Red multinivel visual
-- [ ] `MiRed.tsx` reemplazado con árbol jerárquico
-- [ ] `NodoReferido({ nodo })` recursivo
-- [ ] `NIVEL_ESTILO` por nivel (badge y border)
-- [ ] Indentación y borde lateral `ml-6 border-l-2`
-- [ ] KPIs: 7 referidos, $4,090 ventas, $319.50 comisiones, nivel Plata
-- [ ] Comisiones por nodo con `+ $comision`
-- [ ] Raíz "Tú" con comisiones destacadas
-- [ ] Solo admin accede a `/mi-red` (guardas)
-
----
-
-## Hito: Frontend — Dashboard y Navegación
-
-### Paso 13 — Dashboard con KPIs dinámicos
-- [ ] `Dashboard.tsx` con 3 tarjetas de KPIs
-- [ ] KPIs derivados desde `red.ts`: ventas totales, comisiones, nivel
-- [ ] Gráficos o indicadores visuales
-- [ ] Solo admin accede a `/` (guardas)
-
-### Paso 14 — Navegación por rol
-- [ ] `Sidebar.tsx` con menú condicional por rol
-- [ ] Admin: Dashboard, Mi Red, Catálogo, Carrito
-- [ ] Cliente: Tienda, Catálogo, Carrito
-- [ ] `Navbar.tsx` con avatar y logout
-- [ ] Colapsable en móvil
-- [ ] Active route highlighting
-
----
-
-## Hito: Verificación Final
-
-### Pruebas end-to-end
-- [ ] Login admin → acceso a `/` y `/mi-red`
-- [ ] Login cliente → acceso a `/tienda` y `/catalogo`, redirección desde `/mi-red`
-- [ ] Sin login → redirección a `/login` en rutas protegidas
-- [ ] Carrito persiste al recargar
-- [ ] Carrito aislado por usuario
-- [ ] Catálogo con filtros funciona y URL refleja `?categoria=`
-- [ ] Detalle con lightbox funciona
-- [ ] Checkout limpia carrito y muestra confirmación
-- [ ] Red multinivel muestra KPIs correctos
-
-### Build y Lint
-- [ ] `backend: go build ./...` sin errores
-- [ ] `frontend: npm run lint` sin errores
-- [ ] `frontend: npm run build` sin errores
