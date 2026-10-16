@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido, TASA_COMISION, type Referido } from './MiRed/data/red';
 import { getRed } from './MiRed/services/redService';
+import { useAuth } from '../context/AuthContext';
 
 // Colores y etiquetas por nivel para el árbol
 const NIVEL_ESTILO: Record<number, { badge: string; border: string; tasa: string }> = {
@@ -55,12 +56,14 @@ const NodoReferido = ({ nodo }: { nodo: Referido }) => {
 };
 
 const MiRed = () => {
+  const { user } = useAuth();
+  const email = user?.email;
   const [red, setRed] = useState<Referido | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getRed()
+    getRed(email)
       .then((data) => {
         setRed(data);
         setLoading(false);
@@ -69,7 +72,7 @@ const MiRed = () => {
         setError(err instanceof Error ? err.message : "Error al cargar la red");
         setLoading(false);
       });
-  }, []);
+  }, [email]);
 
   if (loading) {
     return (

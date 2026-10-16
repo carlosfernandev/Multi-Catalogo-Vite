@@ -1,11 +1,14 @@
 // src/components/Checkout.tsx
-// Flujo de checkout simulado (Tema 5):
+// Flujo de checkout (Fase 4):
 // - Formulario de envío con validación básica
 // - Resumen del pedido en tiempo real
-// - Simula el procesamiento del pago y redirige a /confirmacion
+// - Envía el pedido a POST /api/checkout (transacción ACID en Go) y redirige a /confirmacion
+// - Si la API responde con error, muestra la alerta y no avanza
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { crearPedido } from '../services/checkoutService';
 
 interface DatosEnvio {
   nombre: string;
@@ -20,6 +23,7 @@ const METODOS_PAGO = ["Tarjeta de crédito", "Transferencia bancaria", "Efectivo
 
 const Checkout = () => {
   const { cart, totalPrice, clearCart } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [datos, setDatos] = useState<DatosEnvio>({
@@ -31,6 +35,7 @@ const Checkout = () => {
     metodoPago: METODOS_PAGO[0],
   });
   const [procesando, setProcesando] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Si el carrito está vacío, mostramos un aviso en lugar del formulario
   if (cart.length === 0) {
@@ -48,28 +53,46 @@ const Checkout = () => {
     setDatos((prev) => ({ ...prev, [campo]: valor }));
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setProcesando(true);
+    setError(null);
 
-    // Simulamos el procesamiento del pago con un pequeño retraso
-    setTimeout(() => {
+    try {
+      // Solo se envían IDs y cantidades: el backend usa los precios reales de la base de datos
+      const respuesta = await crearPedido({
+        usuario_email: user?.email ?? "",
+        cliente: {
+          nombre: datos.nombre,
+          email: datos.email,
+          direccion: datos.direccion,
+          ciudad: datos.ciudad,
+          telefono: datos.telefono,
+        },
+        metodo_pago: datos.metodoPago,
+        items: cart.map((item) => ({ producto_id: item.id, cantidad: item.cantidad })),
+      });
+
       const pedido = {
-        numero: `MC-${Date.now().toString().slice(-6)}`,
-        items: cart.map((item) => ({
+        numero: respuesta.numero,
+        items: respuesta.items.map((item) => ({
           nombre: item.nombre,
           cantidad: item.cantidad,
-          precio: item.precio,
+          precio: item.precio_unitario,
         })),
-        total: totalPrice,
+        total: respuesta.total,
         cliente: { nombre: datos.nombre, email: datos.email, ciudad: datos.ciudad },
-        fecha: new Date().toLocaleString("es-EC"),
+        fecha: new Date(respuesta.fecha).toLocaleString("es-EC"),
       };
 
-      // Vaciamos el carrito y pasamos los datos del pedido a la confirmación
+      // Pedido confirmado: vaciamos el carrito y pasamos los datos a la confirmación
       clearCart();
       navigate("/confirmacion", { state: { pedido } });
-    }, 1200);
+    } catch (err) {
+      // ROLLBACK en el backend: el carrito se conserva para reintentar
+      setError(err instanceof Error ? err.message : "No se pudo procesar el pedido");
+      setProcesando(false);
+    }
   };
 
   return (
@@ -167,6 +190,13 @@ const Checkout = () => {
               ))}
             </div>
           </div>
+
+          {error && (
+            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+              <p className="font-semibold">No se pudo completar el pedido</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+          )}
 
           <button
             type="submit"

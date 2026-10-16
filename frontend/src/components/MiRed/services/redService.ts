@@ -4,9 +4,11 @@
 
 import type { Referido } from "../data/red";
 
-// Obtiene la estructura jerárquica de la red de referidos desde GET /api/red
-export const getRed = async (): Promise<Referido> => {
-  const response = await fetch("/api/red");
+// Obtiene la estructura jerárquica de la red de referidos desde GET /api/red.
+// El email identifica la clave de caché en Redis (red:tree:{email}).
+export const getRed = async (email?: string): Promise<Referido> => {
+  const url = email ? `/api/red?email=${encodeURIComponent(email)}` : "/api/red";
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error("Error al obtener la red de referidos desde la API");
   }
