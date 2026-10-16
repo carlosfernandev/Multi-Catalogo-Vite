@@ -201,25 +201,24 @@ func (r *PostgresRepository) ObtenerRed(ctx context.Context) ([]models.Referido,
 // ConstruirArbolRed construye la jerarquía multinivel a partir de una lista plana de referidos.
 // Esta función es pura (no accede a DB) y se usa después de ObtenerRed.
 func ConstruirArbolRed(referidos []models.Referido) *models.Referido {
-	// Crear mapa por ID para acceso rápido
-	refMap := make(map[int]*models.Referido)
-	for i := range referidos {
-		refMap[referidos[i].ID] = &referidos[i]
-	}
-
-	// Construir árbol jerárquico
-	var raices []*models.Referido
-	for i := range referidos {
-		ref := &referidos[i]
+	// Agrupar por padre: los nodos sin parent_id son directos (nivel 1) del usuario.
+	hijosDe := make(map[int][]models.Referido)
+	var raices []models.Referido
+	for _, ref := range referidos {
 		if ref.ParentID == nil {
-			// Es un nodo raíz (nivel 1, directo del usuario)
 			raices = append(raices, ref)
 		} else {
-			// Es hijo de otro nodo
-			if padre, exists := refMap[*ref.ParentID]; exists {
-				padre.Hijos = append(padre.Hijos, *ref)
-			}
+			hijosDe[*ref.ParentID] = append(hijosDe[*ref.ParentID], ref)
 		}
+	}
+
+	// Armar cada subárbol de forma recursiva para no perder niveles profundos (nivel 3).
+	var armar func(nodo models.Referido) models.Referido
+	armar = func(nodo models.Referido) models.Referido {
+		for _, hijo := range hijosDe[nodo.ID] {
+			nodo.Hijos = append(nodo.Hijos, armar(hijo))
+		}
+		return nodo
 	}
 
 	// Retornar el nodo raíz ficticio "Tú" con todos los referidos como hijos
@@ -232,7 +231,7 @@ func ConstruirArbolRed(referidos []models.Referido) *models.Referido {
 	}
 
 	for _, r := range raices {
-		raiz.Hijos = append(raiz.Hijos, *r)
+		raiz.Hijos = append(raiz.Hijos, armar(r))
 	}
 
 	return raiz
