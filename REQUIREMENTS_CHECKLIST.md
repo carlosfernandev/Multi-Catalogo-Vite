@@ -4,7 +4,7 @@
 
 **Hito actual:** Práctica 03 — Unidad 1, Tema 5 (Implementación de interfaces interactivas a pantalla completa y flujos para catálogos de venta multinivel)
 
-**Última tarea completada:** Fase 3 — Caché con Redis (Cache-Aside en `/api/productos` y `/api/red`)
+**Última tarea completada:** Fase 4 — Checkout transaccional (DI, `POST /api/checkout` ACID, Goroutine de comisiones, invalidación de caché)
 
 **Siguiente tarea pendiente:** Paso 5 — Autenticación con rol (extender `AuthContext` con `email + rol` y crear `authService.ts`)
 
@@ -33,6 +33,17 @@
 - [x] `GET /api/productos` cachea `productos:all` con TTL de 5 minutos
 - [x] `GET /api/red` cachea `red:tree:{email}` (query `?email=`) con TTL de 10 minutos
 - [x] Cache Hit responde sin consultar PostgreSQL; si Redis cae, la API sigue respondiendo desde PostgreSQL
+
+### Fase 4 — Checkout transaccional, concurrencia e inyección de dependencias
+- [x] Paso 1: controladores como `struct` con `DBRepository` y `CacheRepository` inyectados desde `main.go` / `routes.go` (sin variables globales `DB`/`RDB`)
+- [x] Paso 2: `POST /api/checkout` recibe `usuario_email`, `cliente`, `metodo_pago` e `items` (`producto_id`, `cantidad`)
+- [x] Paso 3: `CrearPedido` en transacción (`BEGIN` → `pedidos` → `pedido_items` + descuento de `productos.stock` → `COMMIT`); precio tomado de la DB
+- [x] Paso 3: `ROLLBACK` ante producto inexistente (400), stock insuficiente (400), falla simulada (500) y PostgreSQL caído antes del `COMMIT` (500): sin pedido fantasma ni descuento de stock
+- [x] Paso 4: Goroutine `calcularComisiones` tras el `COMMIT`: suma la venta al nodo del comprador y acredita 10/5/2 % a la cadena ascendente (tabla `comisiones`, `referidos.saldo_comision`)
+- [x] Paso 5: la Goroutine invalida `red:tree:{email}` y `red:tree:*`; el siguiente `GET /api/red` es `MISS` con KPIs actualizados
+- [x] Frontend: `Checkout.tsx` usa `services/checkoutService.ts`; error → alerta sin avanzar; éxito → `Confirmacion.tsx` con datos del backend
+- [x] Dashboard y Mi Red envían `?email=` a `/api/red`
+- [x] Corrección: `ConstruirArbolRed` incluye el nivel 3 de la red
 
 ---
 

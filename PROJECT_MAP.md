@@ -17,16 +17,22 @@
 - `healthController.go` — `GET /api/health` (health check).
 - `redController.go` — `GET /api/red` (árbol multinivel, caché `red:tree:{email}` TTL 10 min).
 - `prodController.go` usa caché Redis `productos:all` (TTL 5 min) en `GET /api/productos`.
+- `checkoutController.go` — `POST /api/checkout` (validación, transacción ACID, Goroutine `calcularComisiones`, invalidación `red:tree:*`).
+- Todos los controladores son `struct` con dependencias inyectadas (`repository.DBRepository`, `cache.CacheRepository`).
+
+**Repositorio** (`backend/repository/repository.go`):
+- `DBRepository` (interfaz) + `PostgresRepository` (pgx). `CrearPedido` (transacción del checkout), `AplicarComisiones` (red multinivel).
+- `SimulacionDesdeEntorno` — `CHECKOUT_FALLA_SIMULADA`, `CHECKOUT_PAUSA_COMMIT` para demostrar el `ROLLBACK`.
 
 **Caché** (`backend/cache/`, `backend/config/redis.go`):
 - `config/redis.go` — Cliente Redis (`REDIS_URL` o `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`).
-- `cache/cache.go` — `Obtener` / `Guardar` (Cache-Aside JSON + TTL; cabecera `X-Cache: HIT|MISS`).
+- `cache/cache.go` — `CacheRepository` / `RedisCache`: `Obtener` / `Guardar` (Cache-Aside JSON + TTL; cabecera `X-Cache: HIT|MISS`), `Eliminar` / `EliminarPorPatron` (invalidación).
 
 **Modelos** (`backend/models/`):
-- `models.go` — `LoginRequest`, `Producto`, `APIError` (estructuras de datos).
+- `models.go` — `LoginRequest`, `Producto`, `Referido`, `APIError`, `CheckoutRequest`, `Pedido`, `PedidoItem`, `Comision`.
 
 **Rutas** (`backend/routes/`):
-- `routes.go` — Registro de endpoints: `/api/health`, `/api/login`, `/api/productos`, `/api/productos/:id`.
+- `routes.go` — `SetupRoutes(app, repo, cache)` instancia los controladores y registra `/api/health`, `/api/login`, `/api/productos`, `/api/productos/:id`, `/api/red`, `POST /api/checkout`.
 
 **Configuración:**
 - `go.mod`, `go.sum` — Dependencias Go.
