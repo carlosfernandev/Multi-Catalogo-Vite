@@ -35,8 +35,11 @@ Comandos (en `frontend/`): `npm run dev` (:5173, proxy `/api` → `:3000` en `vi
 | `App.tsx` | Router, guardas `ProtectedRoute`/`AdminRoute`, `CartBoundary` (carrito por usuario). |
 | `main.tsx` | Bootstrap de React. |
 | `index.css` | Tailwind v4 (import único). |
-| `context/AuthContext.tsx` | Sesión: `{email, rol}` admin\|cliente. Sin persistencia (o con persistencia JWT). |
-| `context/CartContext.tsx` | Carrito por usuario persistido en localStorage (`multicatalogo_carrito_<email>`). |
+| `context/auth.ts` | Tipos `Usuario`, `Rol`, helper `getStoredToken()`, hook `useAuth()`. |
+| `context/AuthContext.tsx` | `AuthProvider` con persistencia JWT en localStorage (`multicatalogo_sesion`). |
+| `context/cart.ts` | Tipos `CartItem`, constante `CART_STORAGE_PREFIX`, hook `useCart()`. |
+| `context/CartContext.tsx` | `CartProvider` aislado para Fast Refresh de ESLint. |
+| `services/http.ts` | Cliente HTTP centralizado (`apiFetch`, `http`), Bearer automático y `ApiError` tipado. |
 | `components/Catalogo/interfaces/iproducto.ts` | Tipo `IProducto`. |
 | `components/Catalogo/data/productos.ts` | Tipos `Producto` / datos mock + lista `categorias`. |
 | `components/Catalogo/services/productosService.ts` | `getProductos()`, `getProductoById()` → `GET /api/productos[/:id]`. |

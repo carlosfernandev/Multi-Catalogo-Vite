@@ -2,6 +2,7 @@
 package controllers
 
 import (
+	"errors"
 	"os"
 	"time"
 
@@ -59,6 +60,12 @@ func (h *AuthController) Login(c *fiber.Ctx) error {
 	// Buscar usuario en la base de datos por email.
 	usuario, err := h.repo.BuscarUsuarioPorEmail(c.Context(), req.Email)
 	if err != nil {
+		if errors.Is(err, repository.ErrNoEncontrado) {
+			return c.Status(401).JSON(models.APIError{
+				Status:  401,
+				Message: "Credenciales incorrectas",
+			})
+		}
 		return c.Status(500).JSON(models.APIError{
 			Status:  500,
 			Message: "Error al buscar usuario",

@@ -3,6 +3,8 @@
 // El backend guarda el pedido en una transacción ACID y calcula el total con
 // los precios reales de PostgreSQL; aquí solo se envían IDs y cantidades.
 
+import { http } from "./http";
+
 export interface ClienteCheckout {
   nombre: string;
   email: string;
@@ -33,30 +35,7 @@ export interface PedidoResponse {
   }[];
 }
 
-import { getStoredToken } from "../context/AuthContext";
-
 // Envía el pedido; si la API responde con error (400/500) lanza su mensaje
 export const crearPedido = async (pedido: CheckoutRequest): Promise<PedidoResponse> => {
-  let response: Response;
-  const token = getStoredToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  try {
-    response = await fetch("/api/checkout", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(pedido),
-    });
-  } catch {
-    throw new Error("No se pudo conectar con el servidor. Inténtalo de nuevo.");
-  }
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(data?.message ?? "No se pudo procesar el pedido");
-  }
-  return data as PedidoResponse;
+  return http.post<PedidoResponse>("/api/checkout", pedido);
 };

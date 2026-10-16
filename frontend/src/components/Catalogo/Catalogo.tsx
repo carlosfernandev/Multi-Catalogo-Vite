@@ -5,7 +5,7 @@
 // - Tarjetas enlazadas al detalle /producto/:id
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useCart } from '../../context/CartContext';
+import { useCart } from '../../context/cart';
 import { getProductos } from './services/productosService';
 import { categorias } from './data/productos';
 import type { IProducto } from './interfaces/iproducto';
@@ -135,7 +135,7 @@ const Catalogo = () => {
 
                 <button
                   onClick={() => addToCart(prod)}
-                  className="mt-auto w-full bg-slate-900 text-white py-2 rounded text-sm hover:bg-indigo-600 transition"
+                  className="mt-auto w-full bg-slate-900 text-white min-h-[44px] py-2 px-4 rounded text-sm font-medium hover:bg-indigo-600 transition flex items-center justify-center"
                 >
                   Añadir al Carrito
                 </button>

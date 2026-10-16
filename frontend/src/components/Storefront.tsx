@@ -6,7 +6,7 @@
 // - Explicación del modelo multinivel
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 import { getProductos } from '../components/Catalogo/services/productosService';
 import type { IProducto } from '../components/Catalogo/interfaces/iproducto';
 import { categorias } from '../components/Catalogo/data/productos';

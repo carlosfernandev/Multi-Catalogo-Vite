@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido, TASA_COMISION, type Referido } from './MiRed/data/red';
 import { getRed } from './MiRed/services/redService';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 // Colores y etiquetas por nivel para el árbol
 const NIVEL_ESTILO: Record<number, { badge: string; border: string; tasa: string }> = {
@@ -45,7 +45,7 @@ const NodoReferido = ({ nodo }: { nodo: Referido }) => {
 
       {/* Hijos del referido (más profundidad en el árbol) */}
       {nodo.hijos && nodo.hijos.length > 0 && (
-        <ul className="mt-3 ml-6 space-y-3 border-l-2 border-slate-200 pl-4">
+        <ul className="mt-3 ml-2 sm:ml-6 space-y-3 border-l-2 border-slate-200 pl-2 sm:pl-4">
           {nodo.hijos.map((hijo) => (
             <NodoReferido key={hijo.id} nodo={hijo} />
           ))}

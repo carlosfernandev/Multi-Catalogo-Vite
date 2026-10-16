@@ -27,6 +27,9 @@ type DBRepository interface {
 	AplicarComisiones(ctx context.Context, pedidoID, usuarioID int, total float64) ([]models.Comision, error)
 }
 
+// ErrNoEncontrado indica que el registro solicitado no existe en la base de datos (mapeado a 404/401).
+var ErrNoEncontrado = errors.New("recurso no encontrado")
+
 // ErrValidacion indica un error de datos del cliente (HTTP 400), p. ej. producto inexistente o sin stock.
 type ErrValidacion struct {
 	Mensaje string
@@ -85,8 +88,8 @@ func (r *PostgresRepository) BuscarUsuarioPorCredenciales(ctx context.Context, e
 	)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil // Usuario no encontrado (no es error, simplemente no existe)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNoEncontrado
 		}
 		return nil, fmt.Errorf("error al buscar usuario: %w", err)
 	}
@@ -101,8 +104,8 @@ func (r *PostgresRepository) BuscarUsuarioPorEmail(ctx context.Context, email st
 
 	err := r.db.QueryRow(ctx, query, email).Scan(&usuario.ID, &usuario.Email, &usuario.Password, &usuario.Rol)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNoEncontrado
 		}
 		return nil, fmt.Errorf("error al buscar usuario: %w", err)
 	}
@@ -160,8 +163,8 @@ func (r *PostgresRepository) ObtenerProductoPorID(ctx context.Context, id int) (
 	)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil // Producto no encontrado
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNoEncontrado // Producto no encontrado
 		}
 		return nil, fmt.Errorf("error al buscar producto: %w", err)
 	}

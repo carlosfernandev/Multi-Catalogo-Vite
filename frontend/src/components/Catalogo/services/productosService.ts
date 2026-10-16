@@ -3,24 +3,21 @@
 // Consume los endpoints reales de la API Go/Fiber (/api/productos).
 
 import type { IProducto } from "../interfaces/iproducto";
+import { apiFetch, ApiError } from "../../../services/http";
 
 // Obtiene la lista completa de productos desde GET /api/productos
 export const getProductos = async (): Promise<IProducto[]> => {
-  const response = await fetch("/api/productos");
-  if (!response.ok) {
-    throw new Error("Error al obtener productos desde la API");
-  }
-  return response.json();
+  return apiFetch<IProducto[]>("/api/productos");
 };
 
 // Obtiene un producto por ID desde GET /api/productos/:id
 export const getProductoById = async (id: number): Promise<IProducto | undefined> => {
-  const response = await fetch(`/api/productos/${id}`);
-  if (response.status === 404) {
-    return undefined;
+  try {
+    return await apiFetch<IProducto>(`/api/productos/${id}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return undefined;
+    }
+    throw err;
   }
-  if (!response.ok) {
-    throw new Error("Error al buscar producto en la API");
-  }
-  return response.json();
 };

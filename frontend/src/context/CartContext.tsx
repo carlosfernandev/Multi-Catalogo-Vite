@@ -1,46 +1,14 @@
 // src/context/CartContext.tsx
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import type { IProducto } from '../components/Catalogo/interfaces/iproducto';
-import { useAuth } from './AuthContext';
+import { useAuth } from './auth';
+import {
+  CartContext,
+  CART_STORAGE_PREFIX,
+  type CartItem,
+  type CartProviderProps,
+} from './cart';
 
-// 1. Elemento del carrito: un producto + la cantidad seleccionada
-export interface CartItem extends IProducto {
-  cantidad: number;
-}
-
-interface CartContextType {
-  cart: CartItem[];
-  addToCart: (producto: IProducto) => void;
-  removeFromCart: (id: number) => void;
-  incrementQuantity: (id: number) => void;
-  decrementQuantity: (id: number) => void;
-  clearCart: () => void;
-  totalItems: number;
-  totalPrice: number;
-}
-
-// 2. Prefijo de la clave de persistencia en localStorage.
-// Se completa con el correo del usuario para que CADA CUENTA tenga su propio carrito.
-const CART_STORAGE_PREFIX = "multicatalogo_carrito_";
-
-// 3. Creamos el contexto indicando que puede ser CartContextType o undefined
-const CartContext = createContext<CartContextType | undefined>(undefined);
-
-// 4. Hook personalizado con validación de tipo
-export const useCart = () => {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error("useCart debe ser usado dentro de un CartProvider");
-  }
-  return context;
-};
-
-// 5. Tipamos los props del Provider
-interface CartProviderProps {
-  children: ReactNode;
-}
-
-// 6. El Provider
 export const CartProvider = ({ children }: CartProviderProps) => {
   const { user } = useAuth();
 

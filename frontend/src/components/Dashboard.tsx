@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido, type Referido } from './MiRed/data/red';
 import { getRed } from './MiRed/services/redService';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth';
 
 const Dashboard = () => {
   const { user } = useAuth();

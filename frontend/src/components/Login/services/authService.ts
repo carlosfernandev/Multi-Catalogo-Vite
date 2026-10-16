@@ -1,9 +1,9 @@
 // src/components/Login/services/authService.ts
 // Servicio de autenticación (feature Login). Aísla el proceso POST /api/login
 // para que el componente solo llame a esta función, igual que Catalogo/services.
-// En la Unidad 2 este cuerpo se reemplazará por JWT real sin tocar Login.tsx.
 
-import type { Rol } from "../../../context/AuthContext";
+import type { Rol } from "../../../context/auth";
+import { http } from "../../../services/http";
 
 export interface LoginResponse {
   email: string;
@@ -12,19 +12,11 @@ export interface LoginResponse {
 }
 
 // Envía las credenciales a POST /api/login y normaliza la respuesta con el rol y token JWT
-export const login = (email: string, password: string): Promise<LoginResponse> => {
-  return fetch("/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  })
-    .then((response) => {
-      if (!response.ok) throw new Error("Credenciales incorrectas");
-      return response.json();
-    })
-    .then((data) => {
-      // La API devuelve el rol (admin | cliente) junto al correo y token JWT
-      const rol: Rol = data.rol === "admin" ? "admin" : "cliente";
-      return { email: data.email, rol, token: data.token };
-    });
+export const login = async (email: string, password: string): Promise<LoginResponse> => {
+  const data = await http.post<{ email: string; rol: string; token: string }>("/api/login", {
+    email,
+    password,
+  });
+  const rol: Rol = data.rol === "admin" ? "admin" : "cliente";
+  return { email: data.email, rol, token: data.token };
 };

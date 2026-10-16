@@ -3,7 +3,7 @@
 // - incrementQuantity / decrementQuantity desde el contexto
 // - Enlace al flujo de checkout
 import { Link } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/cart';
 
 const Carrito = () => {
   const {
@@ -35,13 +35,13 @@ const Carrito = () => {
             {cart.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between bg-white p-4 rounded-lg border border-slate-200 shadow-sm gap-4"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-lg border border-slate-200 shadow-sm gap-4"
               >
                 <div className="flex items-center gap-4">
                   <img
                     src={item.img}
                     alt={item.nombre}
-                    className="w-16 h-16 object-cover rounded-md"
+                    className="w-16 h-16 object-cover rounded-md flex-shrink-0"
                   />
                   <div>
                     <Link to={`/producto/${item.id}`}>
@@ -53,22 +53,22 @@ const Carrito = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                   {/* Control de cantidad */}
                   <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
                     <button
                       onClick={() => decrementQuantity(item.id)}
-                      className="px-3 py-2 text-slate-600 hover:bg-slate-100 transition"
+                      className="px-3 py-2 text-slate-600 hover:bg-slate-100 transition min-w-[44px] min-h-[44px] flex items-center justify-center text-base"
                       aria-label="Disminuir cantidad"
                     >
                       −
                     </button>
-                    <span className="px-3 py-2 text-sm font-semibold text-slate-800 border-x border-slate-200">
+                    <span className="px-3 py-2 text-sm font-semibold text-slate-800 border-x border-slate-200 min-h-[44px] flex items-center justify-center">
                       {item.cantidad}
                     </span>
                     <button
                       onClick={() => incrementQuantity(item.id)}
-                      className="px-3 py-2 text-slate-600 hover:bg-slate-100 transition"
+                      className="px-3 py-2 text-slate-600 hover:bg-slate-100 transition min-w-[44px] min-h-[44px] flex items-center justify-center text-base"
                       aria-label="Aumentar cantidad"
                     >
                       +
@@ -81,8 +81,9 @@ const Carrito = () => {
 
                   <button
                     onClick={() => removeFromCart(item.id)}
-                    className="text-red-500 hover:text-red-700 transition"
+                    className="text-red-500 hover:text-red-700 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
                     title="Eliminar producto"
+                    aria-label="Eliminar producto"
                   >
                     🗑️
                   </button>
@@ -106,7 +107,7 @@ const Carrito = () => {
             </div>
             <Link
               to="/checkout"
-              className="block w-full text-center bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition"
+              className="w-full text-center bg-indigo-600 text-white min-h-[44px] py-3 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center justify-center"
             >
               Proceder al Pago
             </Link>

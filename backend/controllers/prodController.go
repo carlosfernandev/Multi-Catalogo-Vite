@@ -2,6 +2,7 @@
 package controllers
 
 import (
+	"errors"
 	// Importamos Fiber para manejar la respuesta HTTP.
 	"github.com/gofiber/fiber/v2"
 	// Importamos strconv para convertir strings a números.
@@ -79,6 +80,13 @@ func (h *ProductoController) GetProductoPorID(c *fiber.Ctx) error {
 	// Buscar producto en la base de datos usando el repository.
 	producto, err := h.repo.ObtenerProductoPorID(c.Context(), id)
 	if err != nil {
+		if errors.Is(err, repository.ErrNoEncontrado) {
+			return c.Status(404).JSON(models.APIError{
+				Status:  404,
+				Message: "Producto no encontrado",
+				Details: map[string]int{"id": id},
+			})
+		}
 		return c.Status(500).JSON(models.APIError{
 			Status:  500,
 			Message: "Error al buscar producto",

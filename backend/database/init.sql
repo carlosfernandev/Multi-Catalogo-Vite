@@ -131,3 +131,11 @@ CREATE TABLE IF NOT EXISTS comisiones (
     creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (pedido_id, referido_id)
 );
+
+-- =====================================================================
+-- Índices de optimización de rendimiento
+-- =====================================================================
+CREATE INDEX IF NOT EXISTS idx_referidos_parent_id ON referidos(parent_id);
+CREATE INDEX IF NOT EXISTS idx_pedidos_cliente_email ON pedidos(cliente_email);
+CREATE INDEX IF NOT EXISTS idx_pedido_items_pedido_id ON pedido_items(pedido_id);
+CREATE INDEX IF NOT EXISTS idx_productos_categoria ON productos(categoria);

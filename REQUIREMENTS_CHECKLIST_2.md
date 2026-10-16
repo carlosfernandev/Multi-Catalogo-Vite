@@ -52,8 +52,8 @@ React SPA (:5173, proxy /api) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 > por responsabilidad (`components/`, `context/`, `services/`, `data/`).
 
 - [x] Entorno SPA con Vite + Tailwind CSS
-- [ ] `frontend/package.json` renombrado a `multicatalogo-frontend`
-- [ ] `VITE_API_URL` en `frontend/.env` + `import.meta.env` (cliente único en `frontend/src/services/http.ts`)
+- [x] `frontend/package.json` renombrado a `multicatalogo-frontend`
+- [x] `VITE_API_URL` en `frontend/.env` + `import.meta.env` (cliente único en `frontend/src/services/http.ts`)
 
 ## U1-T3 · Componentes y gestión de estado global
 
@@ -61,14 +61,14 @@ React SPA (:5173, proxy /api) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 
 - [x] `AuthContext` (sesión `{email, rol}`) y `CartContext` (carrito en localStorage por email) — `frontend/src/context/`
 - [x] Persistencia de sesión en `frontend/src/context/AuthContext.tsx` (`multicatalogo_sesion`: usuario + JWT en localStorage)
-- [ ] Warnings eslint resueltos: split `frontend/src/context/auth.ts` + `frontend/src/context/cart.ts` (hooks/tipos separados del Provider); `npm run lint` → 0 errores, 0 warnings
+- [x] Warnings eslint resueltos: split `frontend/src/context/auth.ts` + `frontend/src/context/cart.ts` (hooks/tipos separados del Provider); `npm run lint` → 0 errores, 0 warnings
 
 ## U1-T4 · Consumo de API RESTful y enrutamiento
 
 > Promesas con fetch, capa de servicios desacoplada y guardas de ruta por rol.
 
 - [x] `frontend/src/components/Catalogo/services/productosService.ts`, `frontend/src/components/MiRed/services/redService.ts` + guardas `ProtectedRoute`/`AdminRoute` (`frontend/src/App.tsx`)
-- [ ] `frontend/src/services/http.ts`: `apiFetch` único con `Authorization: Bearer` automático, `ApiError` tipado con status y helpers de sesión
+- [x] `frontend/src/services/http.ts`: `apiFetch` único con `Authorization: Bearer` automático, `ApiError` tipado con status y helpers de sesión
 
 ## U1-T5 · Interfaces full-screen y flujos MLM (Práctica 03)
 
@@ -78,7 +78,7 @@ React SPA (:5173, proxy /api) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 - [x] F1 Storefront `/tienda` full-screen (`frontend/src/components/Storefront.tsx`) | F3 Catálogo con búsqueda/filtros (`frontend/src/components/Catalogo/Catalogo.tsx`) | F2 Detalle `/producto/:id` (`frontend/src/components/DetalleProducto.tsx`) | F4 Lightbox
 - [x] F5 Carrito + checkout + confirmación (`frontend/src/components/Carrito.tsx`, `Checkout.tsx`, `Confirmacion.tsx`) | F6 Árbol multinivel comisiones 10/5/2 % (`frontend/src/components/MiRed.tsx`) | F7 Dashboard KPIs (`frontend/src/components/Dashboard.tsx`)
 - [x] `frontend/src/components/Checkout.tsx` → `POST /api/checkout` real (sin simulación) + manejo de `APIError`
-- [ ] Audit mobile-first: 375px sin overflow en Dashboard/MiRed/Catálogo; botones de acción ≥44px (`Añadir al Carrito`, steppers de `Carrito`, `Cerrar Sesión`)
+- [x] Audit mobile-first: 375px sin overflow en Dashboard/MiRed/Catálogo; botones de acción ≥44px (`Añadir al Carrito`, steppers de `Carrito`, `Cerrar Sesión`)
 
 ---
 
@@ -106,8 +106,8 @@ React SPA (:5173, proxy /api) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 - [x] `backend/docker-compose.yml` Postgres 16 + Redis alpine + volumen + healthchecks
 - [x] `backend/database/init.sql` (usuarios/productos/referidos + seed), `backend/repository/repository.go` a SQL real, árbol por `parent_id`
 - [x] Cache-Aside (`backend/cache/cache.go`): `productos:all` TTL 5 min, `red:tree:{email}` TTL 10 min, degradación sin caché
-- [ ] Índices: `referidos(parent_id)`, `pedidos(cliente_email)`, `pedido_items(pedido_id)`, `productos(categoria)` (migración `backend/database/003_seguridad.sql` + `init.sql`)
-- [ ] Errores propagados: firmas del repo devuelven `error`; `ErrNoEncontrado`→404/401, resto→500 (nunca lista vacía silenciosa)
+- [x] Índices: `referidos(parent_id)`, `pedidos(cliente_email)`, `pedido_items(pedido_id)`, `productos(categoria)` (migración `backend/database/003_seguridad.sql` + `init.sql`)
+- [x] Errores propagados: firmas del repo devuelven `error`; `ErrNoEncontrado`→404/401, resto→500 (nunca lista vacía silenciosa)
 
 ## U2-T4 · Inyección de dependencias y microservicio seguro
 

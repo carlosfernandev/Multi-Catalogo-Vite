@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getProductoById } from '../components/Catalogo/services/productosService';
 import type { IProducto } from '../components/Catalogo/interfaces/iproducto';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../context/cart';
 
 const DetalleProducto = () => {
   const { id } = useParams<{ id: string }>();
