@@ -61,7 +61,7 @@ func (h *CheckoutController) Checkout(c *fiber.Ctx) error {
 	}
 
 	// COMMIT exitoso: las comisiones se calculan en segundo plano para no hacer esperar al cliente.
-	go h.calcularComisiones(pedido.ID, pedido.Total, usuario.ID)
+	go h.calcularComisiones(pedido.ID, pedido.Total, usuario.ID, usuario.Email)
 
 	log.Printf("Checkout: pedido %s confirmado (total %.2f), respondiendo 201", pedido.Numero, pedido.Total)
 	return c.Status(201).JSON(pedido)
@@ -69,7 +69,7 @@ func (h *CheckoutController) Checkout(c *fiber.Ctx) error {
 
 // calcularComisiones corre en una Goroutine: no usa el contexto de Fiber (se recicla al
 // terminar la petición) y recupera cualquier panic para no tumbar el servidor.
-func (h *CheckoutController) calcularComisiones(pedidoID int, total float64, usuarioID int) {
+func (h *CheckoutController) calcularComisiones(pedidoID int, total float64, usuarioID int, email string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Error: panic en Goroutine de comisiones del pedido %d: %v", pedidoID, r)
@@ -89,6 +89,16 @@ func (h *CheckoutController) calcularComisiones(pedidoID int, total float64, usu
 		log.Printf("Goroutine: pedido %d -> %s (nivel %d) +%.2f", pedidoID, com.Nombre, com.Nivel, com.Monto)
 	}
 	log.Printf("Goroutine: %d comisiones del pedido %d aplicadas en %v", len(comisiones), pedidoID, time.Since(inicio))
+
+	if len(comisiones) == 0 {
+		return
+	}
+	// Paso 5: invalidar la caché del árbol para que el Dashboard muestre los KPIs nuevos.
+	// La red es la misma para todos los usuarios, así que además de red:tree:{email}
+	// se borran las demás copias cacheadas (red:tree:*), incluida la del admin.
+	h.cache.Eliminar(ctx, "red:tree:"+email)
+	h.cache.EliminarPorPatron(ctx, "red:tree:*")
+	log.Printf("Goroutine: caché red:tree:* invalidada tras el pedido %d", pedidoID)
 }
 
 // validarCheckout normaliza el cuerpo y retorna un mensaje de error (vacío si es válido).
