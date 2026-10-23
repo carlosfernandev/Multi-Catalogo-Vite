@@ -65,6 +65,18 @@ const MiRed = () => {
   const [totalLiquidado, setTotalLiquidado] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
+
+  const codigoRef = user?.rol === 'admin' ? 'ANA' : (user?.email?.split('@')[0].toUpperCase() || 'DISTRIBUIDOR');
+  const linkInvitacion = `${typeof window !== 'undefined' ? window.location.origin : ''}/registro?ref=${codigoRef}`;
+
+  const copiarEnlace = () => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(linkInvitacion);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 3000);
+    }
+  };
 
   useEffect(() => {
     Promise.all([getRed(email), getLiquidaciones().catch(() => ({ total_comisiones: 0, cantidad: 0, liquidaciones: [] }))])
@@ -116,6 +128,32 @@ const MiRed = () => {
       <p className="text-slate-500 mb-6">
         Estructura multinivel: gana el {TASA_COMISION[1] * 100} % de nivel 1, {TASA_COMISION[2] * 100} % de nivel 2 y {TASA_COMISION[3] * 100} % de nivel 3.
       </p>
+
+      {/* ===== TARJETA DE INVITACIÓN (CÓDIGO DE REFERIDO) ===== */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-5 text-white mb-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <span>🎁</span> Invita a nuevos distribuidores a tu red
+          </h2>
+          <p className="text-indigo-100 text-xs sm:text-sm mt-1">
+            Comparte tu enlace de invitación. Los usuarios que se registren quedarán bajo tu línea y te generarán comisiones.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <input
+            type="text"
+            readOnly
+            value={linkInvitacion}
+            className="px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-xs sm:text-sm text-white font-mono focus:outline-none w-full md:w-72"
+          />
+          <button
+            onClick={copiarEnlace}
+            className="px-4 py-2 bg-white text-indigo-700 hover:bg-indigo-50 font-semibold rounded-lg text-xs sm:text-sm transition flex-shrink-0 shadow-sm"
+          >
+            {copiado ? "✓ ¡Copiado!" : "Copiar"}
+          </button>
+        </div>
+      </div>
 
       {/* ===== TARJETAS DE RESUMEN ===== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

@@ -87,6 +87,7 @@ type ActualizarProductoRequest struct {
 type Referido struct {
 	ID       int        `json:"id"`
 	Nombre   string     `json:"nombre"`
+	Codigo   string     `json:"codigo,omitempty"`
 	Nivel    int        `json:"nivel"`
 	Ventas   float64    `json:"ventas"`
 	ParentID *int       `json:"parent_id,omitempty"`

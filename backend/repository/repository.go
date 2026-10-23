@@ -480,7 +480,7 @@ func (r *PostgresRepository) EliminarProductoLogico(ctx context.Context, id int)
 // ObtenerRed devuelve la lista plana de referidos desde la base de datos.
 // La construcción del árbol jerárquico se hace en memoria después.
 func (r *PostgresRepository) ObtenerRed(ctx context.Context) ([]models.Referido, error) {
-	query := `SELECT id, nombre, nivel, ventas, parent_id FROM referidos ORDER BY id`
+	query := `SELECT id, nombre, COALESCE(codigo, ''), nivel, ventas, parent_id FROM referidos ORDER BY id`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener referidos: %w", err)
@@ -494,6 +494,7 @@ func (r *PostgresRepository) ObtenerRed(ctx context.Context) ([]models.Referido,
 		err := rows.Scan(
 			&ref.ID,
 			&ref.Nombre,
+			&ref.Codigo,
 			&ref.Nivel,
 			&ref.Ventas,
 			&parentID,

@@ -22,7 +22,7 @@ func NewLiquidacionController(repo repository.DBRepository) *LiquidacionControll
 // ObtenerLiquidaciones devuelve el historial de comisiones de la red.
 // Si el usuario es cliente, se filtra por su email; si es admin, ve el global.
 func (h *LiquidacionController) ObtenerLiquidaciones(c *fiber.Ctx) error {
-	userEmail, _ := c.Locals("usuario_email").(string)
+	userEmail, _ := c.Locals("user_email").(string)
 
 	resumen, err := h.repo.ObtenerLiquidaciones(c.Context(), userEmail)
 	if err != nil {
