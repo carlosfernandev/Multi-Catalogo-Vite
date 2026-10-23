@@ -31,6 +31,8 @@ type DBRepository interface {
 	EliminarProductoLogico(ctx context.Context, id int) error
 	ObtenerRed(ctx context.Context) ([]models.Referido, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error)
+	ObtenerUsuariosAdmin(ctx context.Context, q string) ([]models.Usuario, error)
+	ActualizarUsuarioAdmin(ctx context.Context, id int, req models.ActualizarUsuarioRequest) (*models.Usuario, error)
 	CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error)
 	AplicarComisiones(ctx context.Context, pedidoID, usuarioID int, total float64) ([]models.Comision, error)
 	ObtenerLiquidaciones(ctx context.Context, email string) (*models.ResumenLiquidaciones, error)
@@ -206,6 +208,87 @@ func (r *PostgresRepository) BuscarUsuarioPorEmail(ctx context.Context, email st
 	}
 
 	return &usuario, nil
+}
+
+// ObtenerUsuariosAdmin devuelve la lista de todos los usuarios registrados para el panel de administración.
+func (r *PostgresRepository) ObtenerUsuariosAdmin(ctx context.Context, q string) ([]models.Usuario, error) {
+	query := `SELECT id, email, rol, COALESCE(nombre, ''), activo, referido_id, creado_en FROM usuarios`
+	var rows pgx.Rows
+	var err error
+	if q != "" {
+		query += ` WHERE email ILIKE $1 OR nombre ILIKE $1 ORDER BY id`
+		rows, err = r.db.Query(ctx, query, "%"+q+"%")
+	} else {
+		query += ` ORDER BY id`
+		rows, err = r.db.Query(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener usuarios admin: %w", err)
+	}
+	defer rows.Close()
+
+	var usuarios []models.Usuario
+	for rows.Next() {
+		var u models.Usuario
+		err := rows.Scan(
+			&u.ID,
+			&u.Email,
+			&u.Rol,
+			&u.Nombre,
+			&u.Activo,
+			&u.ReferidoID,
+			&u.CreadoEn,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error al escanear usuario: %w", err)
+		}
+		usuarios = append(usuarios, u)
+	}
+
+	return usuarios, rows.Err()
+}
+
+// ActualizarUsuarioAdmin permite modificar el rol, nombre y estado activo/inactivo de un usuario.
+func (r *PostgresRepository) ActualizarUsuarioAdmin(ctx context.Context, id int, req models.ActualizarUsuarioRequest) (*models.Usuario, error) {
+	var u models.Usuario
+	queryGet := `SELECT id, email, rol, COALESCE(nombre, ''), activo, referido_id, creado_en FROM usuarios WHERE id = $1`
+	err := r.db.QueryRow(ctx, queryGet, id).Scan(
+		&u.ID, &u.Email, &u.Rol, &u.Nombre, &u.Activo, &u.ReferidoID, &u.CreadoEn,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNoEncontrado
+		}
+		return nil, fmt.Errorf("error al buscar usuario para actualizar: %w", err)
+	}
+
+	if req.Nombre != nil {
+		u.Nombre = *req.Nombre
+	}
+	if req.Rol != nil {
+		if *req.Rol != "admin" && *req.Rol != "cliente" {
+			return nil, &ErrValidacion{Mensaje: "El rol debe ser 'admin' o 'cliente'"}
+		}
+		u.Rol = *req.Rol
+	}
+	if req.Activo != nil {
+		u.Activo = *req.Activo
+	}
+
+	queryUpdate := `
+		UPDATE usuarios
+		SET nombre = $1, rol = $2, activo = $3
+		WHERE id = $4
+		RETURNING id, email, rol, COALESCE(nombre, ''), activo, referido_id, creado_en
+	`
+	err = r.db.QueryRow(ctx, queryUpdate, u.Nombre, u.Rol, u.Activo, id).Scan(
+		&u.ID, &u.Email, &u.Rol, &u.Nombre, &u.Activo, &u.ReferidoID, &u.CreadoEn,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error al actualizar usuario: %w", err)
+	}
+
+	return &u, nil
 }
 
 // ObtenerProductos devuelve la lista de productos activos para el catálogo público.

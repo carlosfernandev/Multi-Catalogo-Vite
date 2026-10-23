@@ -4,6 +4,7 @@ package controllers
 import (
 	"errors"
 	"os"
+	"strconv"
 	"time"
 
 	// Importamos el framework Fiber para tener acceso al contexto (c *fiber.Ctx) de la petición HTTP.
@@ -211,4 +212,79 @@ func (h *AuthController) Register(c *fiber.Ctx) error {
 		"rol":         nuevoUsuario.Rol,
 		"referido_id": nuevoUsuario.ReferidoID,
 	})
+}
+
+// GetUsuariosAdmin devuelve la lista de todos los usuarios registrados para el panel de administración.
+func (h *AuthController) GetUsuariosAdmin(c *fiber.Ctx) error {
+	q := c.Query("q")
+	usuarios, err := h.repo.ObtenerUsuariosAdmin(c.Context(), q)
+	if err != nil {
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al obtener usuarios para administración",
+			Details: detallesSeguros(err),
+		})
+	}
+	return c.JSON(usuarios)
+}
+
+// ActualizarUsuarioAdmin permite a un administrador cambiar el rol o activar/desactivar un usuario.
+func (h *AuthController) ActualizarUsuarioAdmin(c *fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "ID de usuario inválido",
+		})
+	}
+
+	var req models.ActualizarUsuarioRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "Cuerpo de petición inválido",
+			Details: err.Error(),
+		})
+	}
+
+	currentUserID, _ := c.Locals("user_id").(int)
+	if id == currentUserID {
+		if req.Activo != nil && !*req.Activo {
+			return c.Status(400).JSON(models.APIError{
+				Status:  400,
+				Message: "No puedes desactivar tu propia cuenta de administrador",
+			})
+		}
+		if req.Rol != nil && *req.Rol != "admin" {
+			return c.Status(400).JSON(models.APIError{
+				Status:  400,
+				Message: "No puedes remover tu propio rol de administrador",
+			})
+		}
+	}
+
+	actualizado, err := h.repo.ActualizarUsuarioAdmin(c.Context(), id, req)
+	if err != nil {
+		if errors.Is(err, repository.ErrNoEncontrado) {
+			return c.Status(404).JSON(models.APIError{
+				Status:  404,
+				Message: "Usuario no encontrado",
+			})
+		}
+		var errVal *repository.ErrValidacion
+		if errors.As(err, &errVal) {
+			return c.Status(400).JSON(models.APIError{
+				Status:  400,
+				Message: errVal.Mensaje,
+			})
+		}
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al actualizar usuario",
+			Details: detallesSeguros(err),
+		})
+	}
+
+	return c.JSON(actualizado)
 }

@@ -31,6 +31,13 @@ type Usuario struct {
 	CreadoEn   time.Time `json:"creado_en,omitempty"`
 }
 
+// ActualizarUsuarioRequest define los campos modificables por un administrador.
+type ActualizarUsuarioRequest struct {
+	Nombre *string `json:"nombre,omitempty"`
+	Rol    *string `json:"rol,omitempty"`
+	Activo *bool   `json:"activo,omitempty"`
+}
+
 // Producto define la estructura de los datos de un artículo en nuestro catálogo.
 type Producto struct {
 	// ID es el identificador único numérico del producto.
