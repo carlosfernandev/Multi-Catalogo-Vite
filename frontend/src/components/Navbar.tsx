@@ -71,9 +71,15 @@ const Navbar = ({ toggleCollapse }: NavbarProps) => {
             </div>
 
             <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <Link
+                to="/perfil"
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 font-medium hover:bg-slate-50 rounded-t-md transition-colors min-h-[44px] flex items-center block"
+              >
+                Mi Perfil
+              </Link>
               <button
                 onClick={handleLogout}
-                className="w-full text-left px-4 py-2.5 text-sm text-red-600 font-semibold hover:bg-red-50 rounded-md transition-colors min-h-[44px] flex items-center"
+                className="w-full text-left px-4 py-2.5 text-sm text-red-600 font-semibold hover:bg-red-50 rounded-b-md transition-colors min-h-[44px] flex items-center"
               >
                 Cerrar Sesión
               </button>
