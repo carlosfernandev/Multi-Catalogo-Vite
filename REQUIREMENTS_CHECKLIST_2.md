@@ -80,6 +80,70 @@ React SPA (:5173, proxy /api) ──► Caddy/Nginx (U4: proxy inverso + SSL)
 - [x] `frontend/src/components/Checkout.tsx` → `POST /api/checkout` real (sin simulación) + manejo de `APIError`
 - [x] Audit mobile-first: 375px sin overflow en Dashboard/MiRed/Catálogo; botones de acción ≥44px (`Añadir al Carrito`, steppers de `Carrito`, `Cerrar Sesión`)
 
+## U1-T6 · Configuración PWA (Progressive Web App)
+
+> Transformar la SPA en PWA instalable con soporte offline, caching estratégico
+> y experiencia nativa en móviles usando vite-plugin-pwa + Workbox.
+
+### Fase 1: Instalación y configuración base
+- [x] Instalar dependencia: `pnpm install -D vite-plugin-pwa workbox-window` en `frontend/`
+- [x] Configurar plugin en `frontend/vite.config.ts` con estrategia `staleWhileRevalidate` para assets estáticos
+- [x] Definir registerSW en `frontend/src/main.tsx` para registro automático del service worker
+- [x] Agregar tipos TypeScript para `virtual:pwa-register` en `frontend/src/vite-env.d.ts`
+
+### Fase 2: Manifest y metadatos PWA
+- [x] Crear `manifest.json` (generado por vite-plugin-pwa en build) con:
+  - `name`: "MultiCatálogo"
+  - `short_name`: "MultiCatálogo"
+  - `description`: "Tienda cosmética con red multinivel"
+  - `start_url`: "/"
+  - `display`: "standalone"
+  - `background_color`: "#ffffff"
+  - `theme_color`: "#000000"
+  - `orientation`: "portrait"
+  - `scope`: "/"
+  - `icons`: array con iconos 192x192, 512x512, maskable
+- [x] Agregar meta tags PWA en `frontend/index.html`:
+  - `<meta name="theme-color" content="#000000">`
+  - `<meta name="description" content="Tienda cosmética con red multinivel">`
+  - `<link rel="apple-touch-icon" href="/icon-192x192.png">`
+
+### Fase 3: Iconos de múltiples tamaños
+- [x] Generar iconos desde fuente base (192x192, 512x512, maskable) usando ImageMagick
+- [x] Colocar iconos en `frontend/public/`:
+  - `icon-192x192.png`
+  - `icon-512x512.png`
+  - `icon-maskable-512x512.png` (con padding para safe area)
+- [x] Actualizar configuración en `vite.config.ts` con rutas de iconos generados
+
+### Fase 4: Configuración de caching (Workbox)
+- [x] Configurar estrategias de cache en `vite.config.ts`:
+  - `NetworkFirst` para endpoints `/api/*` (priorizar datos frescos)
+  - `StaleWhileRevalidate` para assets estáticos (CSS, JS, imágenes)
+  - `StaleWhileRevalidate` para recursos inmutables (fuentes, vendor chunks)
+- [x] Definir TTLs razonables:
+  - API: 0 (siempre network first, cache como fallback)
+  - Assets estáticos: 1 hora (3600s)
+  - Imágenes: 24 horas (86400s)
+- [x] Excluir rutas de cache: `/api/login`, `/api/checkout` (no cachear mutaciones) - implementado vía NetworkFirst sin cache persistente
+
+### Fase 5: Estrategia offline
+- [x] Página offline fallback en `frontend/public/offline.html` con mensaje amigable
+- [x] Configurar `navigateFallback` en vite-plugin-pwa para redirecciones offline
+- [ ] Agregar indicador de estado de conexión en UI (opcional, en `AuthContext` o componente dedicado)
+
+### Fase 6: Verificación y testing
+- [x] Build de producción: `pnpm run build` y verificar generación de `sw.js` + `workbox-*.js` + `manifest.webmanifest`
+- [ ] Testing en Chrome DevTools > Application > Service Workers:
+  - Verificar registro activo del service worker
+  - Verificar estado "activated" y "running"
+  - Probar modo offline en Network tab
+- [ ] Testing de instalación PWA:
+  - Verificar aparición de prompt de instalación en móvil (Chrome Android)
+  - Verificar icono en home screen
+  - Verificar apertura en modo standalone (sin browser chrome)
+- [ ] Lighthouse PWA audit (puntuación ≥90 en todas las categorías PWA)
+
 ---
 
 # UNIDAD 2 — BACKEND ALTA TRANSACCIONALIDAD (Go/Fiber · "entornos bancarios")
