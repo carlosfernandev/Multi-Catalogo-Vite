@@ -73,13 +73,28 @@ const Sidebar = ({ collapsed, onClose }: SidebarProps) => {
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
-    checkHealth()
-      .then((res) => {
-        setBackendOnline(res.status === "ok");
-      })
-      .catch(() => {
-        setBackendOnline(false);
-      });
+    let montado = true;
+    const verificar = () => {
+      checkHealth()
+        .then((res) => {
+          if (montado) {
+            setBackendOnline(res.status === "ok" || res.status === "degraded");
+          }
+        })
+        .catch(() => {
+          if (montado) {
+            setBackendOnline(false);
+          }
+        });
+    };
+
+    verificar();
+    // Sondeo periódico suave cada 15 segundos
+    const timer = setInterval(verificar, 15000);
+    return () => {
+      montado = false;
+      clearInterval(timer);
+    };
   }, []);
 
   // Filtramos las opciones según el rol del usuario
