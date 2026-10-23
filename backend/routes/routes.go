@@ -44,4 +44,9 @@ func SetupRoutes(app *fiber.App, ctrls *controllers.Controllers) {
 	admin.Get("/admin/usuarios", ctrls.Auth.GetUsuariosAdmin)
 	admin.Patch("/usuarios/:id", ctrls.Auth.ActualizarUsuarioAdmin)
 	admin.Put("/usuarios/:id", ctrls.Auth.ActualizarUsuarioAdmin)
+
+	// Gestión Administrativa de Liquidaciones (Fase 5 MLM)
+	admin.Get("/liquidaciones/pendientes", ctrls.Liquidacion.ObtenerPendientes)
+	admin.Get("/liquidaciones/historial", ctrls.Liquidacion.ObtenerHistorial)
+	admin.Post("/liquidaciones", ctrls.Liquidacion.Liquidar)
 }

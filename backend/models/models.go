@@ -173,3 +173,27 @@ type ResumenLiquidaciones struct {
 	Cantidad        int                   `json:"cantidad"`
 	Liquidaciones   []LiquidacionRegistro `json:"liquidaciones"`
 }
+
+// LiquidarRequest payload para liquidar las comisiones pendientes de un distribuidor.
+type LiquidarRequest struct {
+	ReferidoID int `json:"referido_id"`
+}
+
+// Liquidacion representa un pago emitido a un distribuidor en la tabla liquidaciones.
+type Liquidacion struct {
+	ID             int        `json:"id"`
+	ReferidoID     int        `json:"referido_id"`
+	ReferidoNombre string     `json:"referido_nombre,omitempty"`
+	Total          float64    `json:"total"`
+	Estado         string     `json:"estado"`
+	CreadoEn       time.Time  `json:"creado_en"`
+	PagadaEn       *time.Time `json:"pagada_en,omitempty"`
+}
+
+// DistribuidorPendiente representa el saldo acumulado pendiente de cobro de un distribuidor.
+type DistribuidorPendiente struct {
+	ReferidoID         int     `json:"referido_id"`
+	ReferidoNombre     string  `json:"referido_nombre"`
+	TotalPendiente     float64 `json:"total_pendiente"`
+	CantidadComisiones int     `json:"cantidad_comisiones"`
+}

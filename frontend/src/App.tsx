@@ -14,6 +14,7 @@ import Login from './components/Login/Login';
 import Registro from './components/Login/Registro';
 import AdminProductos from './components/Admin/AdminProductos';
 import AdminUsuarios from './components/Admin/AdminUsuarios';
+import AdminLiquidaciones from './components/Admin/AdminLiquidaciones';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/auth';
@@ -71,12 +72,13 @@ function App() {
             {/* Rutas protegidas (requieren login) */}
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<Layout />}>
-                {/* Solo administrador: Dashboard, Red multinivel, Catálogo Admin y Usuarios */}
+                {/* Solo administrador: Dashboard, Red multinivel, Catálogo Admin, Usuarios y Liquidaciones */}
                 <Route element={<AdminRoute />}>
                   <Route index element={<Dashboard />} />
                   <Route path="mi-red" element={<MiRed />} />
                   <Route path="admin/productos" element={<AdminProductos />} />
                   <Route path="admin/usuarios" element={<AdminUsuarios />} />
+                  <Route path="admin/liquidaciones" element={<AdminLiquidaciones />} />
                 </Route>
 
                 {/* Ambos roles: flujo de compra en línea */}

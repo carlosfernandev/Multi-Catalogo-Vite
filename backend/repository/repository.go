@@ -36,6 +36,9 @@ type DBRepository interface {
 	CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error)
 	AplicarComisiones(ctx context.Context, pedidoID, usuarioID int, total float64) ([]models.Comision, error)
 	ObtenerLiquidaciones(ctx context.Context, email string) (*models.ResumenLiquidaciones, error)
+	ObtenerPendientesLiquidacion(ctx context.Context) ([]models.DistribuidorPendiente, error)
+	ObtenerHistorialLiquidaciones(ctx context.Context) ([]models.Liquidacion, error)
+	LiquidarComisiones(ctx context.Context, referidoID int) (*models.Liquidacion, error)
 }
 
 // ErrNoEncontrado indica que el registro solicitado no existe en la base de datos (mapeado a 404/401).
@@ -771,4 +774,144 @@ func (r *PostgresRepository) ObtenerLiquidaciones(ctx context.Context, email str
 		Cantidad:        len(liquidaciones),
 		Liquidaciones:   liquidaciones,
 	}, nil
+}
+
+// ObtenerPendientesLiquidacion calcula la deuda pendiente de comisiones agrupada por distribuidor.
+func (r *PostgresRepository) ObtenerPendientesLiquidacion(ctx context.Context) ([]models.DistribuidorPendiente, error) {
+	query := `
+		SELECT 
+			c.referido_id,
+			COALESCE(r.nombre, 'Referido #' || c.referido_id) as referido_nombre,
+			COALESCE(SUM(c.monto), 0) as total_pendiente,
+			COUNT(c.id) as cantidad_comisiones
+		FROM comisiones c
+		JOIN referidos r ON c.referido_id = r.id
+		WHERE c.estado = 'pendiente'
+		GROUP BY c.referido_id, r.nombre
+		ORDER BY total_pendiente DESC
+	`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener pendientes de liquidacion: %w", err)
+	}
+	defer rows.Close()
+
+	var pendientes []models.DistribuidorPendiente
+	for rows.Next() {
+		var d models.DistribuidorPendiente
+		if err := rows.Scan(&d.ReferidoID, &d.ReferidoNombre, &d.TotalPendiente, &d.CantidadComisiones); err != nil {
+			return nil, fmt.Errorf("error al escanear distribuidor pendiente: %w", err)
+		}
+		pendientes = append(pendientes, d)
+	}
+
+	if pendientes == nil {
+		pendientes = []models.DistribuidorPendiente{}
+	}
+	return pendientes, rows.Err()
+}
+
+// ObtenerHistorialLiquidaciones devuelve el registro histórico de pagos emitidos a distribuidores.
+func (r *PostgresRepository) ObtenerHistorialLiquidaciones(ctx context.Context) ([]models.Liquidacion, error) {
+	query := `
+		SELECT 
+			l.id,
+			l.referido_id,
+			COALESCE(r.nombre, 'Referido #' || l.referido_id) as referido_nombre,
+			l.total,
+			l.estado,
+			l.creado_en,
+			l.pagada_en
+		FROM liquidaciones l
+		JOIN referidos r ON l.referido_id = r.id
+		ORDER BY l.id DESC
+	`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener historial de liquidaciones: %w", err)
+	}
+	defer rows.Close()
+
+	var lista []models.Liquidacion
+	for rows.Next() {
+		var l models.Liquidacion
+		if err := rows.Scan(&l.ID, &l.ReferidoID, &l.ReferidoNombre, &l.Total, &l.Estado, &l.CreadoEn, &l.PagadaEn); err != nil {
+			return nil, fmt.Errorf("error al escanear liquidacion: %w", err)
+		}
+		lista = append(lista, l)
+	}
+
+	if lista == nil {
+		lista = []models.Liquidacion{}
+	}
+	return lista, rows.Err()
+}
+
+// LiquidarComisiones ejecuta la transacción ACID que consolida y paga las comisiones pendientes de un referido.
+func (r *PostgresRepository) LiquidarComisiones(ctx context.Context, referidoID int) (*models.Liquidacion, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error al iniciar transaccion de liquidacion: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Bloquear filas de comisiones pendientes con FOR UPDATE para evitar pagos duplicados
+	querySelect := `SELECT id, monto FROM comisiones WHERE referido_id = $1 AND estado = 'pendiente' FOR UPDATE`
+	rows, err := tx.Query(ctx, querySelect, referidoID)
+	if err != nil {
+		return nil, fmt.Errorf("error al consultar comisiones pendientes: %w", err)
+	}
+
+	var comisionIDs []int
+	var total float64
+	for rows.Next() {
+		var cID int
+		var monto float64
+		if err := rows.Scan(&cID, &monto); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("error al escanear comision para liquidar: %w", err)
+		}
+		comisionIDs = append(comisionIDs, cID)
+		total += monto
+	}
+	rows.Close()
+
+	if len(comisionIDs) == 0 {
+		return nil, &ErrValidacion{Mensaje: "No existen comisiones pendientes para liquidar a este distribuidor"}
+	}
+
+	// Insertar liquidación
+	queryInsert := `
+		INSERT INTO liquidaciones (referido_id, total, estado, creado_en, pagada_en)
+		VALUES ($1, $2, 'pagada', NOW(), NOW())
+		RETURNING id, referido_id, total, estado, creado_en, pagada_en
+	`
+	var liq models.Liquidacion
+	var pagadaEn time.Time
+	err = tx.QueryRow(ctx, queryInsert, referidoID, total).Scan(
+		&liq.ID, &liq.ReferidoID, &liq.Total, &liq.Estado, &liq.CreadoEn, &pagadaEn,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error al crear registro de liquidacion: %w", err)
+	}
+	liq.PagadaEn = &pagadaEn
+
+	// Marcar comisiones como pagadas asociándolas a la liquidación
+	queryUpdate := `
+		UPDATE comisiones 
+		SET estado = 'pagada', liquidacion_id = $1 
+		WHERE referido_id = $2 AND estado = 'pendiente'
+	`
+	if _, err := tx.Exec(ctx, queryUpdate, liq.ID, referidoID); err != nil {
+		return nil, fmt.Errorf("error al actualizar estado de comisiones: %w", err)
+	}
+
+	// Obtener nombre del referido para presentación
+	_ = tx.QueryRow(ctx, `SELECT nombre FROM referidos WHERE id = $1`, referidoID).Scan(&liq.ReferidoNombre)
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error al confirmar transaccion de liquidacion: %w", err)
+	}
+
+	return &liq, nil
 }
