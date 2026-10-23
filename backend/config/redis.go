@@ -39,18 +39,27 @@ func InitRedis() (*redis.Client, error) {
 		}
 	}
 
-	// Tiempos cortos: si Redis cae, la API responde rápido desde PostgreSQL.
-	opts.DialTimeout = 500 * time.Millisecond
-	opts.ReadTimeout = 300 * time.Millisecond
-	opts.WriteTimeout = 300 * time.Millisecond
-	opts.MaxRetries = 1
+	// Tiempos adecuados para entornos Docker contenerizados
+	opts.DialTimeout = 3 * time.Second
+	opts.ReadTimeout = 2 * time.Second
+	opts.WriteTimeout = 2 * time.Second
+	opts.MaxRetries = 3
 
 	client := redis.NewClient(opts)
 
-	// Verificar conexión
-	if err := client.Ping(context.Background()).Err(); err != nil {
+	// Verificar conexión con reintentos para sincronizar con la red interna de Docker
+	var pingErr error
+	for i := 0; i < 4; i++ {
+		pingErr = client.Ping(context.Background()).Err()
+		if pingErr == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if pingErr != nil {
 		client.Close()
-		return nil, fmt.Errorf("error al conectar a Redis (%s): %w", opts.Addr, err)
+		return nil, fmt.Errorf("error al conectar a Redis (%s): %w", opts.Addr, pingErr)
 	}
 
 	log.Printf("Conectado a Redis exitosamente (%s)", opts.Addr)
