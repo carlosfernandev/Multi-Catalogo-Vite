@@ -46,11 +46,14 @@ docker-compose -f docker-compose.prod.yml logs -f backend
 
 ## Arquitectura de puertos
 
-- **Frontend (nginx)**: puerto 80 (HTTP)
-- **Backend Go**: puerto 3000 (interno)
-- **FastAPI SaaS**: puerto 8000 (interno)
-- **PostgreSQL**: puerto 5432 (interno)
-- **Redis**: puerto 6379 (interno)
+- **Frontend (nginx dentro del contenedor)**: expuesto en el host en puerto `4173` (o `80` si se ejecuta con permisos root). En el contenedor corre en el puerto 80 interno.
+- **Backend Go**: puerto `3000` (accesible en `http://localhost:3000` o interno en la red Docker `multicatalogo-network`)
+- **FastAPI SaaS**: puerto `8000` (accesible en `http://localhost:8000` o interno en la red Docker `multicatalogo-network`)
+- **PostgreSQL**: puerto `5432` (interno / host)
+- **Redis**: puerto `6379` (interno / host)
+
+> [!NOTE]
+> En entornos rootless de Linux (como Podman/Fedora), el puerto del frontend en `docker-compose.prod.yml` está configurado por defecto como `"4173:80"` para evitar restricciones en puertos privilegiados (< 1024). Si despliegas directamente en EC2 con Docker daemon estándar con permisos de root, puedes mapearlo a `"80:80"`.
 
 ## Configuración HTTPS (Opcional - Recomendado)
 
@@ -66,7 +69,7 @@ sudo apt install -y caddy
 Crear `/etc/caddy/Caddyfile`:
 ```
 tu-dominio.com {
-    reverse_proxy localhost:80
+    reverse_proxy localhost:4173
 }
 ```
 
@@ -94,9 +97,11 @@ server {
     server_name tu-dominio.com;
 
     location / {
-        proxy_pass http://localhost:80;
+        proxy_pass http://localhost:4173;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
@@ -134,5 +139,9 @@ sudo ufw enable
 ## Troubleshooting
 
 - **Contenedor no inicia**: `docker logs <container-name>`
-- **Base de datos no conecta**: Verificar que postgres esté healthy: `docker-compose ps`
-- **Frontend no carga API**: Verificar CORS en backend/main.go (origins permitidos)
+- **Base de datos no conecta**: Verificar que postgres esté healthy: `docker-compose -f docker-compose.prod.yml ps`
+- **Frontend no carga API**: Verificar CORS en `backend/main.go` (origins permitidos).
+- **Scripts de inicialización SQL**: El contenedor de PostgreSQL monta los archivos en `/docker-entrypoint-initdb.d/` en orden alfabético (`001_init.sql`, `002_checkout.sql`, `003_seguridad.sql`, `004_saas_tenants.sql`, `005_backoffice.sql`). Si se agrega una nueva migración sobre un contenedor existente, aplicarla con:
+  ```bash
+  docker exec -i multicatalogo-postgres psql -U multicatalogo -d multicatalogo < backend/database/005_backoffice.sql
+  ```
