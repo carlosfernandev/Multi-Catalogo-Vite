@@ -34,19 +34,46 @@ type Usuario struct {
 // Producto define la estructura de los datos de un artículo en nuestro catálogo.
 type Producto struct {
 	// ID es el identificador único numérico del producto.
-	ID         int      `json:"id"`
+	ID          int      `json:"id"`
 	// Nombre es la descripción en texto del producto.
-	Nombre     string   `json:"nombre"`
+	Nombre      string   `json:"nombre"`
 	// Descripcion es el texto detallado del producto.
-	Descripcion string  `json:"descripcion"`
+	Descripcion string   `json:"descripcion"`
 	// Precio es el costo del producto, almacenado como un número con decimales (float64).
-	Precio     float64  `json:"precio"`
+	Precio      float64  `json:"precio"`
 	// Categoria es la clasificación del producto.
-	Categoria  string   `json:"categoria"`
+	Categoria   string   `json:"categoria"`
 	// Img es la URL o ruta que apunta a la fotografía o imagen del producto.
-	Img        string   `json:"img"`
+	Img         string   `json:"img"`
 	// Galeria es un arreglo de URLs de imágenes adicionales.
-	Galeria    []string `json:"galeria"`
+	Galeria     []string `json:"galeria"`
+	// Stock disponible en inventario.
+	Stock       int      `json:"stock"`
+	// Activo determina si el producto está visible en el catálogo público (borrado lógico).
+	Activo      bool     `json:"activo"`
+}
+
+// CrearProductoRequest define el payload para dar de alta un nuevo producto.
+type CrearProductoRequest struct {
+	Nombre      string   `json:"nombre"`
+	Descripcion string   `json:"descripcion"`
+	Precio      float64  `json:"precio"`
+	Categoria   string   `json:"categoria"`
+	Img         string   `json:"img"`
+	Galeria     []string `json:"galeria"`
+	Stock       int      `json:"stock"`
+}
+
+// ActualizarProductoRequest define el payload para modificar un producto existente.
+type ActualizarProductoRequest struct {
+	Nombre      *string   `json:"nombre,omitempty"`
+	Descripcion *string   `json:"descripcion,omitempty"`
+	Precio      *float64  `json:"precio,omitempty"`
+	Categoria   *string   `json:"categoria,omitempty"`
+	Img         *string   `json:"img,omitempty"`
+	Galeria     *[]string `json:"galeria,omitempty"`
+	Stock       *int      `json:"stock,omitempty"`
+	Activo      *bool     `json:"activo,omitempty"`
 }
 
 // Referido representa un nodo en la red multinivel de referidos.

@@ -1,6 +1,18 @@
 -- Script de inicialización de la base de datos multicatalogo
 -- Se ejecuta automáticamente al levantar el contenedor PostgreSQL
 
+-- Asegurar compatibilidad de roles entre entornos local y Docker
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'multicatalogo_user') THEN
+        CREATE ROLE multicatalogo_user WITH LOGIN PASSWORD 'multicatalogo_pass' SUPERUSER;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'multicatalogo') THEN
+        CREATE ROLE multicatalogo WITH LOGIN PASSWORD 'changeme' SUPERUSER;
+    END IF;
+END
+$$;
+
 -- Tabla de usuarios
 CREATE TABLE IF NOT EXISTS usuarios (
     id SERIAL PRIMARY KEY,

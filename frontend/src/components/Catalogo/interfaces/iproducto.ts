@@ -6,4 +6,6 @@ export interface IProducto {
   categoria: string;
   img: string;        // Imagen principal (portada)
   galeria: string[];  // Imágenes adicionales para la galería/lightbox
+  stock?: number;
+  activo?: boolean;
 }

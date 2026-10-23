@@ -105,3 +105,156 @@ func (h *ProductoController) GetProductoPorID(c *fiber.Ctx) error {
 
 	return c.JSON(producto)
 }
+
+// GetProductosAdmin devuelve todos los productos (activos e inactivos) para gestión administrativa.
+func (h *ProductoController) GetProductosAdmin(c *fiber.Ctx) error {
+	q := c.Query("q")
+	productos, err := h.repo.ObtenerProductosAdmin(c.Context(), q)
+	if err != nil {
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al obtener lista administrativa de productos",
+			Details: err.Error(),
+		})
+	}
+	return c.JSON(productos)
+}
+
+// CrearProducto valida y da de alta un nuevo producto en el catálogo.
+func (h *ProductoController) CrearProducto(c *fiber.Ctx) error {
+	var req models.CrearProductoRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "Cuerpo de solicitud inválido",
+			Details: err.Error(),
+		})
+	}
+
+	if req.Nombre == "" {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "El nombre del producto es obligatorio",
+		})
+	}
+	if req.Precio <= 0 {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "El precio debe ser mayor a 0",
+		})
+	}
+	if req.Categoria == "" {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "La categoría es obligatoria",
+		})
+	}
+	if req.Stock < 0 {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "El stock no puede ser negativo",
+		})
+	}
+
+	nuevo, err := h.repo.CrearProducto(c.Context(), req)
+	if err != nil {
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al registrar el producto",
+			Details: err.Error(),
+		})
+	}
+
+	// Invalidar clave de caché para que el catálogo público refleje el nuevo ítem
+	h.cache.Eliminar(c.Context(), claveProductos)
+
+	return c.Status(201).JSON(nuevo)
+}
+
+// ActualizarProducto permite la modificación de un producto existente.
+func (h *ProductoController) ActualizarProducto(c *fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "ID de producto inválido",
+		})
+	}
+
+	var req models.ActualizarProductoRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "Cuerpo de solicitud inválido",
+			Details: err.Error(),
+		})
+	}
+
+	if req.Precio != nil && *req.Precio <= 0 {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "El precio debe ser estrictamente mayor a 0",
+		})
+	}
+	if req.Stock != nil && *req.Stock < 0 {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "El stock no puede ser negativo",
+		})
+	}
+
+	actualizado, err := h.repo.ActualizarProducto(c.Context(), id, req)
+	if err != nil {
+		if errors.Is(err, repository.ErrNoEncontrado) {
+			return c.Status(404).JSON(models.APIError{
+				Status:  404,
+				Message: "Producto no encontrado para actualizar",
+			})
+		}
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al actualizar producto",
+			Details: err.Error(),
+		})
+	}
+
+	// Invalidar caché tras la edición
+	h.cache.Eliminar(c.Context(), claveProductos)
+
+	return c.JSON(actualizado)
+}
+
+// EliminarProducto aplica borrado lógico desactivando el producto.
+func (h *ProductoController) EliminarProducto(c *fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "ID de producto inválido",
+		})
+	}
+
+	if err := h.repo.EliminarProductoLogico(c.Context(), id); err != nil {
+		if errors.Is(err, repository.ErrNoEncontrado) {
+			return c.Status(404).JSON(models.APIError{
+				Status:  404,
+				Message: "Producto no encontrado",
+			})
+		}
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al desactivar producto",
+			Details: err.Error(),
+		})
+	}
+
+	// Invalidar caché tras la desactivación
+	h.cache.Eliminar(c.Context(), claveProductos)
+
+	return c.JSON(fiber.Map{
+		"mensaje": "Producto desactivado exitosamente (borrado lógico)",
+		"id":      id,
+	})
+}

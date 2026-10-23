@@ -31,4 +31,11 @@ func SetupRoutes(app *fiber.App, ctrls *controllers.Controllers) {
 	app.Get("/api/red", middleware.RequireAuth(jwtSecret), ctrls.Red.ObtenerRed)
 	app.Post("/api/checkout", middleware.RequireAuth(jwtSecret), ctrls.Checkout.Checkout)
 	app.Get("/api/liquidaciones", middleware.RequireAuth(jwtSecret), ctrls.Liquidacion.ObtenerLiquidaciones)
+
+	// Rutas protegidas para Administradores (Fase 2 CRUD Productos)
+	admin := app.Group("/api", middleware.RequireAuth(jwtSecret), middleware.RequireAdmin())
+	admin.Get("/admin/productos", ctrls.Producto.GetProductosAdmin)
+	admin.Post("/productos", ctrls.Producto.CrearProducto)
+	admin.Put("/productos/:id", ctrls.Producto.ActualizarProducto)
+	admin.Delete("/productos/:id", ctrls.Producto.EliminarProducto)
 }

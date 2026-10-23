@@ -25,6 +25,10 @@ type DBRepository interface {
 	RegistrarUsuario(ctx context.Context, req models.RegisterRequest) (*models.Usuario, error)
 	ObtenerProductos(ctx context.Context) ([]models.Producto, error)
 	ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error)
+	ObtenerProductosAdmin(ctx context.Context, q string) ([]models.Producto, error)
+	CrearProducto(ctx context.Context, req models.CrearProductoRequest) (*models.Producto, error)
+	ActualizarProducto(ctx context.Context, id int, req models.ActualizarProductoRequest) (*models.Producto, error)
+	EliminarProductoLogico(ctx context.Context, id int) error
 	ObtenerRed(ctx context.Context) ([]models.Referido, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error)
 	CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error)
@@ -204,9 +208,9 @@ func (r *PostgresRepository) BuscarUsuarioPorEmail(ctx context.Context, email st
 	return &usuario, nil
 }
 
-// ObtenerProductos devuelve la lista completa de productos.
+// ObtenerProductos devuelve la lista de productos activos para el catálogo público.
 func (r *PostgresRepository) ObtenerProductos(ctx context.Context) ([]models.Producto, error) {
-	query := `SELECT id, nombre, descripcion, precio, categoria, img, galeria FROM productos ORDER BY id`
+	query := `SELECT id, nombre, descripcion, precio, categoria, img, galeria, stock, activo FROM productos WHERE activo = true ORDER BY id`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener productos: %w", err)
@@ -224,6 +228,8 @@ func (r *PostgresRepository) ObtenerProductos(ctx context.Context) ([]models.Pro
 			&p.Categoria,
 			&p.Img,
 			&p.Galeria,
+			&p.Stock,
+			&p.Activo,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error al escanear producto: %w", err)
@@ -240,7 +246,7 @@ func (r *PostgresRepository) ObtenerProductos(ctx context.Context) ([]models.Pro
 
 // ObtenerProductoPorID devuelve un producto específico por su ID.
 func (r *PostgresRepository) ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error) {
-	query := `SELECT id, nombre, descripcion, precio, categoria, img, galeria FROM productos WHERE id = $1`
+	query := `SELECT id, nombre, descripcion, precio, categoria, img, galeria, stock, activo FROM productos WHERE id = $1`
 	var producto models.Producto
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
@@ -251,6 +257,8 @@ func (r *PostgresRepository) ObtenerProductoPorID(ctx context.Context, id int) (
 		&producto.Categoria,
 		&producto.Img,
 		&producto.Galeria,
+		&producto.Stock,
+		&producto.Activo,
 	)
 
 	if err != nil {
@@ -261,6 +269,126 @@ func (r *PostgresRepository) ObtenerProductoPorID(ctx context.Context, id int) (
 	}
 
 	return &producto, nil
+}
+
+// ObtenerProductosAdmin devuelve todos los productos (activos e inactivos) con soporte opcional de búsqueda.
+func (r *PostgresRepository) ObtenerProductosAdmin(ctx context.Context, q string) ([]models.Producto, error) {
+	query := `SELECT id, nombre, descripcion, precio, categoria, img, galeria, stock, activo FROM productos`
+	var rows pgx.Rows
+	var err error
+	if q != "" {
+		query += ` WHERE nombre ILIKE $1 OR descripcion ILIKE $1 OR categoria ILIKE $1 ORDER BY id`
+		rows, err = r.db.Query(ctx, query, "%"+q+"%")
+	} else {
+		query += ` ORDER BY id`
+		rows, err = r.db.Query(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener productos admin: %w", err)
+	}
+	defer rows.Close()
+
+	var productos []models.Producto
+	for rows.Next() {
+		var p models.Producto
+		err := rows.Scan(
+			&p.ID,
+			&p.Nombre,
+			&p.Descripcion,
+			&p.Precio,
+			&p.Categoria,
+			&p.Img,
+			&p.Galeria,
+			&p.Stock,
+			&p.Activo,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error al escanear producto: %w", err)
+		}
+		productos = append(productos, p)
+	}
+
+	return productos, rows.Err()
+}
+
+// CrearProducto inserta un nuevo artículo en la tabla productos.
+func (r *PostgresRepository) CrearProducto(ctx context.Context, req models.CrearProductoRequest) (*models.Producto, error) {
+	if req.Galeria == nil {
+		req.Galeria = []string{}
+	}
+	query := `
+		INSERT INTO productos (nombre, descripcion, precio, categoria, img, galeria, stock, activo)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+		RETURNING id, nombre, descripcion, precio, categoria, img, galeria, stock, activo
+	`
+	var p models.Producto
+	err := r.db.QueryRow(ctx, query, req.Nombre, req.Descripcion, req.Precio, req.Categoria, req.Img, req.Galeria, req.Stock).Scan(
+		&p.ID, &p.Nombre, &p.Descripcion, &p.Precio, &p.Categoria, &p.Img, &p.Galeria, &p.Stock, &p.Activo,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error al insertar producto: %w", err)
+	}
+	return &p, nil
+}
+
+// ActualizarProducto modifica campos seleccionados de un producto existente.
+func (r *PostgresRepository) ActualizarProducto(ctx context.Context, id int, req models.ActualizarProductoRequest) (*models.Producto, error) {
+	prod, err := r.ObtenerProductoPorID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Nombre != nil {
+		prod.Nombre = *req.Nombre
+	}
+	if req.Descripcion != nil {
+		prod.Descripcion = *req.Descripcion
+	}
+	if req.Precio != nil {
+		prod.Precio = *req.Precio
+	}
+	if req.Categoria != nil {
+		prod.Categoria = *req.Categoria
+	}
+	if req.Img != nil {
+		prod.Img = *req.Img
+	}
+	if req.Galeria != nil {
+		prod.Galeria = *req.Galeria
+	}
+	if req.Stock != nil {
+		prod.Stock = *req.Stock
+	}
+	if req.Activo != nil {
+		prod.Activo = *req.Activo
+	}
+
+	query := `
+		UPDATE productos 
+		SET nombre = $1, descripcion = $2, precio = $3, categoria = $4, img = $5, galeria = $6, stock = $7, activo = $8
+		WHERE id = $9
+		RETURNING id, nombre, descripcion, precio, categoria, img, galeria, stock, activo
+	`
+	var p models.Producto
+	err = r.db.QueryRow(ctx, query, prod.Nombre, prod.Descripcion, prod.Precio, prod.Categoria, prod.Img, prod.Galeria, prod.Stock, prod.Activo, id).Scan(
+		&p.ID, &p.Nombre, &p.Descripcion, &p.Precio, &p.Categoria, &p.Img, &p.Galeria, &p.Stock, &p.Activo,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error al actualizar producto: %w", err)
+	}
+	return &p, nil
+}
+
+// EliminarProductoLogico marca un producto con activo = false para no romper pedidos históricos.
+func (r *PostgresRepository) EliminarProductoLogico(ctx context.Context, id int) error {
+	res, err := r.db.Exec(ctx, `UPDATE productos SET activo = false WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("error al desactivar producto: %w", err)
+	}
+	if res.RowsAffected() == 0 {
+		return ErrNoEncontrado
+	}
+	return nil
 }
 
 // ObtenerRed devuelve la lista plana de referidos desde la base de datos.

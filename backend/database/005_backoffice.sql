@@ -26,6 +26,7 @@ UPDATE referidos SET codigo = 'DIANA' WHERE id = 7 AND codigo IS NULL;
 -- Sincronizar secuencias para evitar colisión de IDs en nuevos registros
 SELECT setval('referidos_id_seq', (SELECT COALESCE(MAX(id), 1) FROM referidos));
 SELECT setval('usuarios_id_seq', (SELECT COALESCE(MAX(id), 1) FROM usuarios));
+SELECT setval('productos_id_seq', (SELECT COALESCE(MAX(id), 1) FROM productos));
 
 -- 3. Modificaciones a la tabla productos (borrado lógico)
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
