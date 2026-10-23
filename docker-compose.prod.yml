@@ -10,10 +10,10 @@ services:
       POSTGRES_USER: multicatalogo
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./backend/database/002_checkout.sql:/docker-entrypoint-initdb.d/002_checkout.sql
-      - ./backend/database/003_seguridad.sql:/docker-entrypoint-initdb.d/003_seguridad.sql
+      - postgres_data:/var/lib/postgresql/data:Z
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro,Z
+      - ./backend/database/002_checkout.sql:/docker-entrypoint-initdb.d/002_checkout.sql:ro,Z
+      - ./backend/database/003_seguridad.sql:/docker-entrypoint-initdb.d/003_seguridad.sql:ro,Z
     ports:
       - "5432:5432"
     healthcheck:
@@ -100,7 +100,7 @@ services:
       dockerfile: Dockerfile
     container_name: multicatalogo-frontend
     ports:
-      - "80:80"
+      - "4173:80"
     depends_on:
       - backend
       - saas
