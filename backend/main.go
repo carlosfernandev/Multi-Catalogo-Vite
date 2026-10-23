@@ -47,9 +47,13 @@ func main() {
 	// Instanciamos una nueva aplicación de Fiber y la guardamos en la variable 'app'.
 	app := fiber.New()
 
-	// Implementamos el middleware CORS a nivel global permitiendo Authorization para tokens JWT.
+	// Implementamos el middleware CORS permitiendo Authorization para tokens JWT.
+	corsOrigins := os.Getenv("CORS_ORIGINS")
+	if corsOrigins == "" {
+		corsOrigins = "*"
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://127.0.0.1:5173, http://localhost:5173",
+		AllowOrigins: corsOrigins,
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 

@@ -1,96 +1,128 @@
 # Despliegue en EC2 con Docker Compose
 
-## Requisitos previos en EC2
+Guía de despliegue y puesta en marcha en servidores Linux / AWS EC2 para la plataforma MultiCatálogo.
 
-1. **Instalar Docker y Docker Compose**
+---
+
+## 1. Requisitos previos en el servidor
+
+### 1.1 Instalar Docker y Docker Compose
 ```bash
 sudo apt update
-sudo apt install -y docker.io docker-compose
+sudo apt install -y docker.io docker-compose-v2
+# O en distribuciones más antiguas: sudo apt install -y docker.io docker-compose
+```
+
+### 1.2 Configurar permisos de usuario (Evitar "permission denied unix:///var/run/docker.sock")
+Si al ejecutar comandos de docker recibes el error `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`, añade tu usuario al grupo `docker`:
+```bash
 sudo usermod -aG docker $USER
 newgrp docker
 ```
+> [!TIP]
+> Si la terminal te sigue pidiendo contraseña o no reconoce el grupo, cierra la sesión SSH y vuelve a conectarte (`exit` y reconectar) para que los permisos se recarguen de inmediato.
 
-2. **Clonar el repositorio**
-```bash
-git clone <tu-repo-url>
-cd Multi-Catalogo-Vite
-```
+---
 
-3. **Configurar variables de entorno**
-```bash
-cp .env.prod.example .env
-# Editar .env con valores seguros
-nano .env
-```
+## 2. Clonar y Configurar el Proyecto
 
-## Despliegue
+1. **Clonar el repositorio**:
+   ```bash
+   git clone https://github.com/carlosfernandev/Multi-Catalogo-Vite.git
+   cd Multi-Catalogo-Vite
+   ```
 
-1. **Construir y levantar contenedores**
-```bash
-docker-compose -f docker-compose.prod.yml up -d --build
-```
+2. **Asegurar que estás en la rama principal**:
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
 
-2. **Verificar estado**
-```bash
-docker-compose -f docker-compose.prod.yml ps
-```
+3. **Crear archivo de variables de entorno de producción**:
+   ```bash
+   cp .env.prod.example .env
+   # Editar con contraseñas seguras y secret de JWT
+   nano .env
+   ```
 
-3. **Ver logs**
-```bash
-# Todos los servicios
-docker-compose -f docker-compose.prod.yml logs -f
+---
 
-# Servicio específico
-docker-compose -f docker-compose.prod.yml logs -f backend
-```
-
-## Arquitectura de puertos
-
-- **Frontend (nginx dentro del contenedor)**: expuesto en el host en puerto `4173` (o `80` si se ejecuta con permisos root). En el contenedor corre en el puerto 80 interno.
-- **Backend Go**: puerto `3000` (accesible en `http://localhost:3000` o interno en la red Docker `multicatalogo-network`)
-- **FastAPI SaaS**: puerto `8000` (accesible en `http://localhost:8000` o interno en la red Docker `multicatalogo-network`)
-- **PostgreSQL**: puerto `5432` (interno / host)
-- **Redis**: puerto `6379` (interno / host)
+## 3. Despliegue con Docker Compose
 
 > [!NOTE]
-> En entornos rootless de Linux (como Podman/Fedora), el puerto del frontend en `docker-compose.prod.yml` está configurado por defecto como `"4173:80"` para evitar restricciones en puertos privilegiados (< 1024). Si despliegas directamente en EC2 con Docker daemon estándar con permisos de root, puedes mapearlo a `"80:80"`.
+> En Docker moderno (v2), el comando oficial es `docker compose` (con espacio). Si tu servidor utiliza la versión 1 de Compose, usa `docker-compose` (con guión).
 
-## Configuración HTTPS (Opcional - Recomendado)
+1. **Construir y levantar todos los servicios en segundo plano**:
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   # O con Compose v1:
+   # docker-compose -f docker-compose.prod.yml up -d --build
+   ```
 
-Para producción, usa Caddy o nginx con Certbot:
+2. **Verificar el estado de los 5 contenedores**:
+   ```bash
+   docker compose -f docker-compose.prod.yml ps
+   ```
+   Debes ver los 5 contenedores en estado `Up` / `healthy`:
+   - `multicatalogo-postgres` (healthy)
+   - `multicatalogo-redis` (healthy)
+   - `multicatalogo-backend` (healthy)
+   - `multicatalogo-saas` (healthy)
+   - `multicatalogo-frontend` (healthy)
 
-### Opción A: Caddy (más simple)
+3. **Ver logs de ejecución**:
+   ```bash
+   # Logs generales
+   docker compose -f docker-compose.prod.yml logs -f
 
-Instalar Caddy:
-```bash
-sudo apt install -y caddy
-```
+   # Logs específicos del backend o base de datos
+   docker compose -f docker-compose.prod.yml logs -f backend
+   docker compose -f docker-compose.prod.yml logs -f postgres
+   ```
 
-Crear `/etc/caddy/Caddyfile`:
-```
-tu-dominio.com {
-    reverse_proxy localhost:4173
-}
-```
+---
 
-Reiniciar Caddy:
-```bash
-sudo systemctl restart caddy
-```
+## 4. Arquitectura de Red y Puertos
 
-### Opción B: nginx + Certbot
+El contenedor `multicatalogo-frontend` incluye un servidor **Nginx** que actúa como punto de entrada unificado y reverse-proxy hacia los microservicios:
 
-1. Instalar nginx y Certbot:
+| Ruta Externa | Destino Interno | Descripción |
+|---|---|---|
+| `http://<ip-servidor>:4173/` | Frontend Nginx (puerto 80) | SPA React 19 + Vite PWA |
+| `http://<ip-servidor>:4173/api/` | `http://backend:3000/api/` | API Go/Fiber (Auth, Catálogo, Pedidos, Liquidaciones) |
+| `http://<ip-servidor>:4173/saas/` | `http://saas:8000/` | Microservicio FastAPI SaaS Multi-Tenant |
+
+- **Ventaja de esta arquitectura:** Al usar el proxy inverso integrado en el Frontend, **se elimina cualquier problema de CORS** y no es necesario exponer los puertos de PostgreSQL (5432), Redis (6379), Backend (3000) ni SaaS (8000) a Internet en el Security Group de AWS.
+
+> [!NOTE]
+> En entornos Linux rootless (como Podman/Fedora), el frontend se expone por defecto en el puerto `4173` para no requerir privilegios de superusuario en puertos `< 1024`.
+> En EC2, si deseas exponer directamente en el puerto HTTP estándar `80`, edita `docker-compose.prod.yml` en la sección `frontend` cambiando `- "4173:80"` por `- "80:80"`.
+
+---
+
+## 5. Configuración de Dominio y Certificado SSL / HTTPS (Recomendado)
+
+### Opción A: Caddy (Automático con Let's Encrypt)
+1. Instalar Caddy:
+   ```bash
+   sudo apt install -y caddy
+   ```
+2. Editar `/etc/caddy/Caddyfile`:
+   ```caddy
+   tu-dominio.com {
+       reverse_proxy localhost:4173
+   }
+   ```
+3. Reiniciar:
+   ```bash
+   sudo systemctl restart caddy
+   ```
+
+### Opción B: Nginx + Certbot
 ```bash
 sudo apt install -y nginx certbot python3-certbot-nginx
 ```
-
-2. Configurar nginx:
-```bash
-sudo nano /etc/nginx/sites-available/multicatalogo
-```
-
-Contenido:
+Crear `/etc/nginx/sites-available/multicatalogo`:
 ```nginx
 server {
     listen 80;
@@ -105,43 +137,42 @@ server {
     }
 }
 ```
-
-3. Habilitar y obtener certificado SSL:
+Habilitar y certificar:
 ```bash
 sudo ln -s /etc/nginx/sites-available/multicatalogo /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d tu-dominio.com
 ```
 
-## Comandos útiles
+---
 
-- **Detener servicios**: `docker-compose -f docker-compose.prod.yml down`
-- **Reiniciar servicio**: `docker-compose -f docker-compose.prod.yml restart backend`
-- **Ver logs de un contenedor**: `docker logs multicatalogo-backend`
-- **Entrar a un contenedor**: `docker exec -it multicatalogo-backend sh`
-- **Actualizar código**: `git pull && docker-compose -f docker-compose.prod.yml up -d --build`
+## 6. Mantenimiento y Troubleshooting
 
-## Seguridad adicional
+- **Actualizar código y reconstruir:**
+  ```bash
+  git pull origin main
+  docker compose -f docker-compose.prod.yml up -d --build
+  ```
 
-1. **Configurar firewall UFW**
-```bash
-sudo ufw allow 22/tcp    # SSH
-sudo ufw allow 80/tcp    # HTTP
-sudo ufw allow 443/tcp   # HTTPS
-sudo ufw enable
-```
+- **Detener todos los servicios:**
+  ```bash
+  docker compose -f docker-compose.prod.yml down
+  ```
 
-2. **Solo exponer puertos necesarios**
-   - Solo puerto 80/443 accesibles desde internet
-   - Puertos 3000, 8000, 5432, 6379 solo en la red Docker interna
+- **Reiniciar un servicio específico:**
+  ```bash
+  docker compose -f docker-compose.prod.yml restart backend
+  ```
 
-## Troubleshooting
-
-- **Contenedor no inicia**: `docker logs <container-name>`
-- **Base de datos no conecta**: Verificar que postgres esté healthy: `docker-compose -f docker-compose.prod.yml ps`
-- **Frontend no carga API**: Verificar CORS en `backend/main.go` (origins permitidos).
-- **Scripts de inicialización SQL**: El contenedor de PostgreSQL monta los archivos en `/docker-entrypoint-initdb.d/` en orden alfabético (`001_init.sql`, `002_checkout.sql`, `003_seguridad.sql`, `004_saas_tenants.sql`, `005_backoffice.sql`). Si se agrega una nueva migración sobre un contenedor existente, aplicarla con:
+- **Aplicar migraciones SQL sobre un volumen existente:**
+  PostgreSQL ejecuta los scripts de `/docker-entrypoint-initdb.d/` solo la primera vez que se crea el volumen. Si ya tenías un volumen antiguo y necesitas aplicar la migración de Backoffice (`005_backoffice.sql`), ejecuta:
   ```bash
   docker exec -i multicatalogo-postgres psql -U multicatalogo -d multicatalogo < backend/database/005_backoffice.sql
+  ```
+
+- **Verificar salud de la base de datos y Redis:**
+  ```bash
+  curl -s http://localhost:3000/api/health
+  # O vía proxy del frontend:
+  curl -s http://localhost:4173/api/health
   ```
