@@ -31,6 +31,7 @@ func SetupRoutes(app *fiber.App, ctrls *controllers.Controllers) {
 	app.Get("/api/red", middleware.RequireAuth(jwtSecret), ctrls.Red.ObtenerRed)
 	app.Post("/api/checkout", middleware.RequireAuth(jwtSecret), ctrls.Checkout.Checkout)
 	app.Get("/api/liquidaciones", middleware.RequireAuth(jwtSecret), ctrls.Liquidacion.ObtenerLiquidaciones)
+	app.Get("/api/me", middleware.RequireAuth(jwtSecret), ctrls.Auth.ObtenerPerfil)
 
 	// Rutas protegidas para Administradores (CRUD Productos y Gestión de Usuarios)
 	admin := app.Group("/api", middleware.RequireAuth(jwtSecret), middleware.RequireAdmin())

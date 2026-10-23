@@ -15,6 +15,7 @@ import Registro from './components/Login/Registro';
 import AdminProductos from './components/Admin/AdminProductos';
 import AdminUsuarios from './components/Admin/AdminUsuarios';
 import AdminLiquidaciones from './components/Admin/AdminLiquidaciones';
+import Perfil from './components/Perfil/Perfil';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/auth';
@@ -88,6 +89,7 @@ function App() {
                 <Route path="checkout" element={<Checkout />} />
                 <Route path="confirmacion" element={<Confirmacion />} />
                 <Route path="mi-red" element={<MiRed />} />
+                <Route path="perfil" element={<Perfil />} />
               </Route>
             </Route>
 

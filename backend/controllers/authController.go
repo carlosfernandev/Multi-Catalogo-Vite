@@ -228,6 +228,28 @@ func (h *AuthController) GetUsuariosAdmin(c *fiber.Ctx) error {
 	return c.JSON(usuarios)
 }
 
+// ObtenerPerfil devuelve el perfil completo del usuario autenticado con su código de referido.
+func (h *AuthController) ObtenerPerfil(c *fiber.Ctx) error {
+	userEmail, _ := c.Locals("user_email").(string)
+
+	perfil, err := h.repo.ObtenerPerfilUsuario(c.Context(), userEmail)
+	if err != nil {
+		if errors.Is(err, repository.ErrNoEncontrado) {
+			return c.Status(404).JSON(models.APIError{
+				Status:  404,
+				Message: "Usuario no encontrado",
+			})
+		}
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al obtener perfil de usuario",
+			Details: detallesSeguros(err),
+		})
+	}
+
+	return c.JSON(perfil)
+}
+
 // ActualizarUsuarioAdmin permite a un administrador cambiar el rol o activar/desactivar un usuario.
 func (h *AuthController) ActualizarUsuarioAdmin(c *fiber.Ctx) error {
 	idParam := c.Params("id")

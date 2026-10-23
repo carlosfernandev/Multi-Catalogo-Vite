@@ -38,6 +38,20 @@ type ActualizarUsuarioRequest struct {
 	Activo *bool   `json:"activo,omitempty"`
 }
 
+// UsuarioPerfil extiende Usuario con datos de la red multinivel para el perfil del usuario.
+type UsuarioPerfil struct {
+	ID             int        `json:"id"`
+	Email          string     `json:"email"`
+	Nombre         string     `json:"nombre"`
+	Rol            string     `json:"rol"`
+	Activo         bool       `json:"activo"`
+	ReferidoID     *int       `json:"referido_id,omitempty"`
+	CreadoEn       time.Time  `json:"creado_en"`
+	ReferidoCodigo *string    `json:"referido_codigo,omitempty"`   // Código para compartir
+	ReferidoNivel  *int       `json:"referido_nivel,omitempty"`    // Nivel en la red
+	ReferidoVentas *int       `json:"referido_ventas,omitempty"`   // Ventas acumuladas
+}
+
 // Producto define la estructura de los datos de un artículo en nuestro catálogo.
 type Producto struct {
 	// ID es el identificador único numérico del producto.

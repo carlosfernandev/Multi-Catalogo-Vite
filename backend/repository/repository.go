@@ -31,6 +31,7 @@ type DBRepository interface {
 	EliminarProductoLogico(ctx context.Context, id int) error
 	ObtenerRed(ctx context.Context) ([]models.Referido, error)
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error)
+	ObtenerPerfilUsuario(ctx context.Context, email string) (*models.UsuarioPerfil, error)
 	ObtenerUsuariosAdmin(ctx context.Context, q string) ([]models.Usuario, error)
 	ActualizarUsuarioAdmin(ctx context.Context, id int, req models.ActualizarUsuarioRequest) (*models.Usuario, error)
 	CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error)
@@ -249,6 +250,30 @@ func (r *PostgresRepository) ObtenerUsuariosAdmin(ctx context.Context, q string)
 	}
 
 	return usuarios, rows.Err()
+}
+
+// ObtenerPerfilUsuario devuelve el perfil completo del usuario autenticado con su código de referido.
+func (r *PostgresRepository) ObtenerPerfilUsuario(ctx context.Context, email string) (*models.UsuarioPerfil, error) {
+	query := `
+		SELECT
+			u.id, u.email, u.rol, u.nombre, u.activo, u.referido_id, u.creado_en,
+			r.codigo as referido_codigo, r.nivel as referido_nivel, r.ventas as referido_ventas
+		FROM usuarios u
+		LEFT JOIN referidos r ON u.referido_id = r.id
+		WHERE u.email = $1
+	`
+	var perfil models.UsuarioPerfil
+	err := r.db.QueryRow(ctx, query, email).Scan(
+		&perfil.ID, &perfil.Email, &perfil.Rol, &perfil.Nombre, &perfil.Activo, &perfil.ReferidoID, &perfil.CreadoEn,
+		&perfil.ReferidoCodigo, &perfil.ReferidoNivel, &perfil.ReferidoVentas,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNoEncontrado
+		}
+		return nil, fmt.Errorf("error al obtener perfil de usuario: %w", err)
+	}
+	return &perfil, nil
 }
 
 // ActualizarUsuarioAdmin permite modificar el rol, nombre y estado activo/inactivo de un usuario.
