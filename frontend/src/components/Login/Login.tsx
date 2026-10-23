@@ -1,6 +1,6 @@
 // src/components/Login/Login.tsx
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/auth";
 import { login as loginRequest } from "./services/authService";
 
@@ -82,11 +82,18 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {loading ? "Validando..." : "Iniciar Sesión"}
           </button>
         </form>
+
+        <div className="mt-4 text-center text-sm text-slate-500">
+          ¿No tienes una cuenta?{" "}
+          <Link to="/registro" className="text-indigo-600 font-semibold hover:underline">
+            Regístrate aquí
+          </Link>
+        </div>
 
         <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 space-y-1">
           <p className="font-semibold text-slate-700">Cuentas de prueba:</p>

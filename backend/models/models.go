@@ -11,12 +11,24 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// RegisterRequest define la estructura para crear una nueva cuenta de cliente.
+type RegisterRequest struct {
+	Nombre   string `json:"nombre"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Ref      string `json:"ref,omitempty"` // Código de referido opcional
+}
+
 // Usuario representa un usuario del sistema en la base de datos.
 type Usuario struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Password string `json:"-"` // No se exporta en JSON
-	Rol      string `json:"rol"`
+	ID         int       `json:"id"`
+	Email      string    `json:"email"`
+	Nombre     string    `json:"nombre,omitempty"`
+	Password   string    `json:"-"` // No se exporta en JSON
+	Rol        string    `json:"rol"`
+	Activo     bool      `json:"activo"`
+	ReferidoID *int      `json:"referido_id,omitempty"`
+	CreadoEn   time.Time `json:"creado_en,omitempty"`
 }
 
 // Producto define la estructura de los datos de un artículo en nuestro catálogo.

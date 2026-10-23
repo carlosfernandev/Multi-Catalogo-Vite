@@ -21,6 +21,7 @@ func SetupRoutes(app *fiber.App, ctrls *controllers.Controllers) {
 
 	// Autenticación pública
 	app.Post("/api/login", ctrls.Auth.Login)
+	app.Post("/api/register", ctrls.Auth.Register)
 
 	// Catálogo de productos (lectura pública optimizada con Cache-Aside)
 	app.Get("/api/productos", ctrls.Producto.GetProductos)

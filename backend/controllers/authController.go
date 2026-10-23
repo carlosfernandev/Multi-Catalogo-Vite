@@ -81,6 +81,14 @@ func (h *AuthController) Login(c *fiber.Ctx) error {
 		})
 	}
 
+	// Rechazar usuarios inactivos
+	if !usuario.Activo {
+		return c.Status(403).JSON(models.APIError{
+			Status:  403,
+			Message: "Cuenta desactivada. Contacte al administrador",
+		})
+	}
+
 	// Validación de contraseña mediante bcrypt con fallback a texto plano para compatibilidad de migración.
 	errBcrypt := bcrypt.CompareHashAndPassword([]byte(usuario.Password), []byte(req.Password))
 	if errBcrypt != nil && usuario.Password != req.Password {
@@ -120,5 +128,87 @@ func (h *AuthController) Login(c *fiber.Ctx) error {
 		"token": signedToken,
 		"email": usuario.Email,
 		"rol":   usuario.Rol,
+	})
+}
+
+// Register maneja la creación de nuevas cuentas de clientes y su inclusión en la red MLM.
+func (h *AuthController) Register(c *fiber.Ctx) error {
+	var req models.RegisterRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "Cuerpo de petición inválido",
+		})
+	}
+
+	if req.Email == "" || req.Password == "" || req.Nombre == "" {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "Nombre, Email y Password son campos obligatorios",
+		})
+	}
+
+	if len(req.Password) < 6 {
+		return c.Status(400).JSON(models.APIError{
+			Status:  400,
+			Message: "La contraseña debe tener al menos 6 caracteres",
+		})
+	}
+
+	// Hashear la contraseña con bcrypt
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error procesando credenciales",
+		})
+	}
+	req.Password = string(hashedBytes)
+
+	nuevoUsuario, err := h.repo.RegistrarUsuario(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, repository.ErrDuplicado) {
+			return c.Status(409).JSON(models.APIError{
+				Status:  409,
+				Message: "Ya existe una cuenta registrada con este correo electrónico",
+			})
+		}
+		var errVal *repository.ErrValidacion
+		if errors.As(err, &errVal) {
+			return c.Status(400).JSON(models.APIError{
+				Status:  400,
+				Message: errVal.Mensaje,
+			})
+		}
+		return c.Status(500).JSON(models.APIError{
+			Status:  500,
+			Message: "Error al registrar usuario",
+			Details: detallesSeguros(err),
+		})
+	}
+
+	// Generar token JWT automático para el nuevo usuario
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "multicatalogo-super-secret-jwt-key"
+	}
+
+	claims := jwt.MapClaims{
+		"sub":   nuevoUsuario.ID,
+		"email": nuevoUsuario.Email,
+		"rol":   nuevoUsuario.Rol,
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(2 * time.Hour).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, _ := token.SignedString([]byte(jwtSecret))
+
+	return c.Status(201).JSON(fiber.Map{
+		"token":       signedToken,
+		"email":       nuevoUsuario.Email,
+		"nombre":      nuevoUsuario.Nombre,
+		"rol":         nuevoUsuario.Rol,
+		"referido_id": nuevoUsuario.ReferidoID,
 	})
 }

@@ -15,10 +15,14 @@ import (
 	"backend/models"
 )
 
+// ErrDuplicado indica conflicto de clave única (HTTP 409).
+var ErrDuplicado = errors.New("el recurso ya existe")
+
 // DBRepository es el contrato de acceso a datos que se inyecta en los controladores.
 // Los controladores dependen de esta interfaz, no de PostgreSQL directamente.
 type DBRepository interface {
 	BuscarUsuarioPorCredenciales(ctx context.Context, email, password string) (*models.Usuario, error)
+	RegistrarUsuario(ctx context.Context, req models.RegisterRequest) (*models.Usuario, error)
 	ObtenerProductos(ctx context.Context) ([]models.Producto, error)
 	ObtenerProductoPorID(ctx context.Context, id int) (*models.Producto, error)
 	ObtenerRed(ctx context.Context) ([]models.Referido, error)
@@ -78,7 +82,7 @@ func NewPostgresRepository(db *pgxpool.Pool, simulacion SimulacionFallas) *Postg
 
 // BuscarUsuarioPorCredenciales busca un usuario por email y password.
 func (r *PostgresRepository) BuscarUsuarioPorCredenciales(ctx context.Context, email, password string) (*models.Usuario, error) {
-	query := `SELECT id, email, password, rol FROM usuarios WHERE email = $1 AND password = $2`
+	query := `SELECT id, email, password, rol, COALESCE(nombre, ''), activo, referido_id FROM usuarios WHERE email = $1 AND password = $2`
 	var usuario models.Usuario
 
 	err := r.db.QueryRow(ctx, query, email, password).Scan(
@@ -86,6 +90,9 @@ func (r *PostgresRepository) BuscarUsuarioPorCredenciales(ctx context.Context, e
 		&usuario.Email,
 		&usuario.Password,
 		&usuario.Rol,
+		&usuario.Nombre,
+		&usuario.Activo,
+		&usuario.ReferidoID,
 	)
 
 	if err != nil {
@@ -98,12 +105,95 @@ func (r *PostgresRepository) BuscarUsuarioPorCredenciales(ctx context.Context, e
 	return &usuario, nil
 }
 
+// RegistrarUsuario crea una cuenta de cliente y su nodo en la red multinivel en una sola transacción.
+func (r *PostgresRepository) RegistrarUsuario(ctx context.Context, req models.RegisterRequest) (*models.Usuario, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error iniciando transaccion de registro: %w", err)
+	}
+	defer tx.Rollback(context.Background())
+
+	// 1. Validar si el email ya existe
+	var existe int
+	err = tx.QueryRow(ctx, "SELECT id FROM usuarios WHERE email = $1", req.Email).Scan(&existe)
+	if err == nil {
+		return nil, ErrDuplicado
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("error validando email: %w", err)
+	}
+
+	// 2. Determinar parent_id y nivel en la red según el código de referido (si se proporciona)
+	var parentID *int
+	nivel := 1
+	if req.Ref != "" {
+		var pID, pNivel int
+		errRef := tx.QueryRow(ctx, "SELECT id, nivel FROM referidos WHERE UPPER(codigo) = UPPER($1)", req.Ref).Scan(&pID, &pNivel)
+		if errors.Is(errRef, pgx.ErrNoRows) {
+			return nil, &ErrValidacion{Mensaje: fmt.Sprintf("El código de referido '%s' no es válido", req.Ref)}
+		} else if errRef != nil {
+			return nil, fmt.Errorf("error validando codigo de referido: %w", errRef)
+		}
+		parentID = &pID
+		if pNivel < 3 {
+			nivel = pNivel + 1
+		} else {
+			nivel = 3
+		}
+	}
+
+	// 3. Insertar el nodo correspondiente en referidos
+	var nuevoReferidoID int
+	// Generar un código único simple para este nuevo usuario
+	codigoNuevo := fmt.Sprintf("REF%d", time.Now().Unix()%100000)
+	err = tx.QueryRow(ctx,
+		`INSERT INTO referidos (nombre, nivel, ventas, parent_id, codigo)
+		 VALUES ($1, $2, 0, $3, $4) RETURNING id`,
+		req.Nombre, nivel, parentID, codigoNuevo,
+	).Scan(&nuevoReferidoID)
+	if err != nil {
+		return nil, fmt.Errorf("error creando nodo en red de referidos: %w", err)
+	}
+
+	// 4. Insertar el usuario vinculado
+	var nuevoUsuario models.Usuario
+	err = tx.QueryRow(ctx,
+		`INSERT INTO usuarios (email, password, rol, nombre, activo, referido_id)
+		 VALUES ($1, $2, 'cliente', $3, true, $4)
+		 RETURNING id, email, rol, nombre, activo, referido_id`,
+		req.Email, req.Password, req.Nombre, nuevoReferidoID,
+	).Scan(
+		&nuevoUsuario.ID,
+		&nuevoUsuario.Email,
+		&nuevoUsuario.Rol,
+		&nuevoUsuario.Nombre,
+		&nuevoUsuario.Activo,
+		&nuevoUsuario.ReferidoID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creando usuario: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error al confirmar registro: %w", err)
+	}
+
+	return &nuevoUsuario, nil
+}
+
 // BuscarUsuarioPorEmail busca un usuario por su email.
 func (r *PostgresRepository) BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error) {
-	query := `SELECT id, email, password, rol FROM usuarios WHERE email = $1`
+	query := `SELECT id, email, password, rol, COALESCE(nombre, ''), activo, referido_id FROM usuarios WHERE email = $1`
 	var usuario models.Usuario
 
-	err := r.db.QueryRow(ctx, query, email).Scan(&usuario.ID, &usuario.Email, &usuario.Password, &usuario.Rol)
+	err := r.db.QueryRow(ctx, query, email).Scan(
+		&usuario.ID,
+		&usuario.Email,
+		&usuario.Password,
+		&usuario.Rol,
+		&usuario.Nombre,
+		&usuario.Activo,
+		&usuario.ReferidoID,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNoEncontrado
