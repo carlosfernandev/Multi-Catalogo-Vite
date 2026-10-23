@@ -25,6 +25,7 @@ type DBRepository interface {
 	BuscarUsuarioPorEmail(ctx context.Context, email string) (*models.Usuario, error)
 	CrearPedido(ctx context.Context, usuarioID int, req models.CheckoutRequest) (*models.Pedido, error)
 	AplicarComisiones(ctx context.Context, pedidoID, usuarioID int, total float64) ([]models.Comision, error)
+	ObtenerLiquidaciones(ctx context.Context, email string) (*models.ResumenLiquidaciones, error)
 }
 
 // ErrNoEncontrado indica que el registro solicitado no existe en la base de datos (mapeado a 404/401).
@@ -415,4 +416,58 @@ func (r *PostgresRepository) AplicarComisiones(ctx context.Context, pedidoID, us
 		return nil, fmt.Errorf("error al confirmar comisiones: %w", err)
 	}
 	return comisiones, nil
+}
+
+// ObtenerLiquidaciones devuelve el historial de comisiones registradas en la BD.
+// Si se pasa un email de usuario específico y no es admin, filtra por el usuario;
+// si es admin o no se filtra, devuelve el histórico general de liquidaciones.
+func (r *PostgresRepository) ObtenerLiquidaciones(ctx context.Context, email string) (*models.ResumenLiquidaciones, error) {
+	query := `
+		SELECT 
+			c.id, c.pedido_id, ('PED-' || c.pedido_id) as pedido_numero,
+			c.referido_id, COALESCE(r.nombre, 'Referido ' || c.referido_id) as referido_nombre,
+			c.nivel, c.monto, c.creado_en
+		FROM comisiones c
+		LEFT JOIN pedidos p ON c.pedido_id = p.id
+		LEFT JOIN referidos r ON c.referido_id = r.id
+		LEFT JOIN usuarios u ON r.usuario_id = u.id
+		WHERE ($1 = '' OR $1 = 'admin@upse.edu.ec' OR u.email = $1)
+		ORDER BY c.creado_en DESC, c.id DESC
+		LIMIT 100`
+
+	rows, err := r.db.Query(ctx, query, email)
+	if err != nil {
+		return nil, fmt.Errorf("error al consultar liquidaciones: %w", err)
+	}
+	defer rows.Close()
+
+	var liquidaciones []models.LiquidacionRegistro
+	var total float64
+
+	for rows.Next() {
+		var reg models.LiquidacionRegistro
+		if err := rows.Scan(
+			&reg.ID, &reg.PedidoID, &reg.PedidoNumero,
+			&reg.ReferidoID, &reg.ReferidoNombre,
+			&reg.Nivel, &reg.Monto, &reg.Fecha,
+		); err != nil {
+			return nil, fmt.Errorf("error al escanear registro de liquidacion: %w", err)
+		}
+		total += reg.Monto
+		liquidaciones = append(liquidaciones, reg)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterando liquidaciones: %w", err)
+	}
+
+	if liquidaciones == nil {
+		liquidaciones = []models.LiquidacionRegistro{}
+	}
+
+	return &models.ResumenLiquidaciones{
+		TotalComisiones: total,
+		Cantidad:        len(liquidaciones),
+		Liquidaciones:   liquidaciones,
+	}, nil
 }

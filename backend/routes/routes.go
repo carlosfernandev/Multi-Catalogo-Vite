@@ -29,4 +29,5 @@ func SetupRoutes(app *fiber.App, ctrls *controllers.Controllers) {
 	// Rutas protegidas mediante token JWT (U2-T4)
 	app.Get("/api/red", middleware.RequireAuth(jwtSecret), ctrls.Red.ObtenerRed)
 	app.Post("/api/checkout", middleware.RequireAuth(jwtSecret), ctrls.Checkout.Checkout)
+	app.Get("/api/liquidaciones", middleware.RequireAuth(jwtSecret), ctrls.Liquidacion.ObtenerLiquidaciones)
 }

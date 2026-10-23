@@ -108,3 +108,22 @@ type Comision struct {
 	Nivel      int     `json:"nivel"`
 	Monto      float64 `json:"monto"`
 }
+
+// LiquidacionRegistro representa una comisión histórica registrada en la BD.
+type LiquidacionRegistro struct {
+	ID             int       `json:"id"`
+	PedidoID       int       `json:"pedido_id"`
+	PedidoNumero   string    `json:"pedido_numero"`
+	ReferidoID     int       `json:"referido_id"`
+	ReferidoNombre string    `json:"referido_nombre"`
+	Nivel          int       `json:"nivel"`
+	Monto          float64   `json:"monto"`
+	Fecha          time.Time `json:"fecha"`
+}
+
+// ResumenLiquidaciones agrupa el total liquidado y los registros detallados.
+type ResumenLiquidaciones struct {
+	TotalComisiones float64               `json:"total_comisiones"`
+	Cantidad        int                   `json:"cantidad"`
+	Liquidaciones   []LiquidacionRegistro `json:"liquidaciones"`
+}

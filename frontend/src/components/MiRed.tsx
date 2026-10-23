@@ -2,9 +2,11 @@
 // Red multinivel visual (Tema 5):
 // - Resumen: referidos activos, ventas de la red, comisiones del mes y nivel alcanzado
 // - Árbol jerárquico recursivo de referidos con comisión calculada por nivel
+// - Historial de liquidaciones reales registradas por pedidos en backend
 import { useState, useEffect } from 'react';
 import { contarRed, sumarVentasRed, sumarComisiones, nivelAlcanzado, comisionDeReferido, TASA_COMISION, type Referido } from './MiRed/data/red';
 import { getRed } from './MiRed/services/redService';
+import { getLiquidaciones, type LiquidacionRegistro } from '../services/liquidacionService';
 import { useAuth } from '../context/auth';
 
 // Colores y etiquetas por nivel para el árbol
@@ -59,13 +61,17 @@ const MiRed = () => {
   const { user } = useAuth();
   const email = user?.email;
   const [red, setRed] = useState<Referido | null>(null);
+  const [liquidaciones, setLiquidaciones] = useState<LiquidacionRegistro[]>([]);
+  const [totalLiquidado, setTotalLiquidado] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getRed(email)
-      .then((data) => {
-        setRed(data);
+    Promise.all([getRed(email), getLiquidaciones().catch(() => ({ total_comisiones: 0, cantidad: 0, liquidaciones: [] }))])
+      .then(([dataRed, dataLiq]) => {
+        setRed(dataRed);
+        setLiquidaciones(dataLiq.liquidaciones || []);
+        setTotalLiquidado(dataLiq.total_comisiones || 0);
         setLoading(false);
       })
       .catch((err) => {
@@ -146,6 +152,62 @@ const MiRed = () => {
             <NodoReferido key={hijo.id} nodo={hijo} />
           ))}
         </ul>
+      </div>
+
+      {/* ===== HISTORIAL DE LIQUIDACIONES / COMISIONES REALES ===== */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 mt-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">Historial de Liquidaciones de Comisiones</h2>
+            <p className="text-sm text-slate-500">
+              Comisiones acumuladas e ingresadas por pedidos reales procesados por la API.
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="text-xs uppercase font-semibold text-slate-400">Total liquidado registrado</span>
+            <p className="text-xl font-bold text-green-600">${totalLiquidado.toFixed(2)}</p>
+          </div>
+        </div>
+
+        {liquidaciones.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+            <p className="text-slate-500 font-medium">Aún no hay liquidaciones registradas en la base de datos.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Las comisiones se generan y registran automáticamente al completar pedidos en el Checkout.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 text-slate-700 text-xs uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th className="p-3">Pedido</th>
+                  <th className="p-3">Beneficiario</th>
+                  <th className="p-3">Nivel</th>
+                  <th className="p-3">Monto Comisión</th>
+                  <th className="p-3">Fecha</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {liquidaciones.map((liq) => (
+                  <tr key={liq.id} className="hover:bg-slate-50 transition">
+                    <td className="p-3 font-semibold text-indigo-600">{liq.pedido_numero}</td>
+                    <td className="p-3 text-slate-800 font-medium">{liq.referido_nombre}</td>
+                    <td className="p-3">
+                      <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full ${NIVEL_ESTILO[liq.nivel]?.badge ?? "bg-slate-100"}`}>
+                        Nivel {liq.nivel}
+                      </span>
+                    </td>
+                    <td className="p-3 font-bold text-green-600">+${liq.monto.toFixed(2)}</td>
+                    <td className="p-3 text-slate-400 text-xs">
+                      {new Date(liq.fecha).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
