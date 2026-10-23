@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: multicatalogo-postgres
+    environment:
+      POSTGRES_DB: multicatalogo
+      POSTGRES_USER: multicatalogo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backend/database/002_checkout.sql:/docker-entrypoint-initdb.d/002_checkout.sql
+      - ./backend/database/003_seguridad.sql:/docker-entrypoint-initdb.d/003_seguridad.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U multicatalogo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - multicatalogo-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: multicatalogo-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - multicatalogo-network
+
+  # Backend Go/Fiber
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: multicatalogo-backend
+    environment:
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: multicatalogo
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      DB_NAME: multicatalogo
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      APP_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    networks:
+      - multicatalogo-network
+
+  # FastAPI SaaS
+  saas:
+    build:
+      context: ./Unidad3_SaaS
+      dockerfile: Dockerfile
+    container_name: multicatalogo-saas
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: multicatalogo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: multicatalogo
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      APP_ENV: production
+      DEBUG: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - multicatalogo-network
+
+  # Frontend (React + Vite PWA)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: multicatalogo-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - saas
+    networks:
+      - multicatalogo-network
+
+volumes:
+  postgres_data:
+
+networks:
+  multicatalogo-network:
+    driver: bridge
