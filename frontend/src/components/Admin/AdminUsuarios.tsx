@@ -46,13 +46,13 @@ export default function AdminUsuarios() {
   useEffect(() => {
     let activo = true;
     obtenerUsuariosAdmin()
-      .then((data) => {
+      .then((data: UsuarioAdmin[]) => {
         if (activo) {
           setUsuarios(data || []);
           setCargando(false);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (activo) {
           setErrorMsg(err instanceof ApiError ? err.message : 'Error al cargar usuarios');
           setCargando(false);
@@ -71,7 +71,7 @@ export default function AdminUsuarios() {
   const abrirModalEditar = (u: UsuarioAdmin) => {
     setUsuarioEnEdicion(u);
     setFormNombre(u.nombre || '');
-    setFormRol(u.rol);
+    setFormRol(u.rol as 'admin' | 'cliente');
     setFormActivo(u.activo);
     setErrorMsg(null);
     setModalAbierto(true);
